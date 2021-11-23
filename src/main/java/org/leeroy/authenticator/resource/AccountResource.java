@@ -1,6 +1,6 @@
 package org.leeroy.authenticator.resource;
 
-import org.leeroy.authenticator.repository.AccountRepository;
+import org.leeroy.authenticator.service.AccountService;
 
 import javax.inject.Inject;
 import javax.ws.rs.Consumes;
@@ -13,12 +13,13 @@ import javax.ws.rs.core.Response;
 public class AccountResource {
 
     @Inject
-    AccountRepository accountRepository;
+    AccountService accountService;
 
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Path("/authenticate")
-    public Response authenticate(){
+    public Response authenticate() {
+        accountService.authenticate("", "");
         return Response.ok().build();
     }
 }
