@@ -32,6 +32,6 @@ public class BlockedAccessServiceImpl implements BlockedAccessService {
 
     @Override
     public void blockIP(BlockedAccess blockedAccess) {
-
+        blockedAccessRepository.persist(blockedAccess);
     }
 }
