@@ -5,7 +5,7 @@ import org.leeroy.authenticator.model.BlockedAccess;
 
 public interface BlockedAccessService {
 
-    Uni<Boolean> isBlocked(String ipAddress, String device);
+    boolean isBlocked(String ipAddress, String device);
 
     void blockIP(BlockedAccess blockedAccess);
 

@@ -1,5 +1,6 @@
 package org.leeroy.authenticator.service.impl;
 
+import io.smallrye.mutiny.Uni;
 import org.leeroy.authenticator.service.AccountService;
 import org.leeroy.authenticator.service.BlockedAccessService;
 
@@ -14,7 +15,13 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public void authenticate(String ipAddress, String device) {
+        boolean isBlocked = blockedIPService.isBlocked(ipAddress, device);
 
+        if (isBlocked) {
+
+        } else {
+
+        }
     }
 
     @Override
