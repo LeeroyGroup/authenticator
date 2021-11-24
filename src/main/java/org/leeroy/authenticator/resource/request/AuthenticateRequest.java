@@ -1,6 +1,9 @@
-package org.leeroy.authenticator.resource.dto;
+package org.leeroy.authenticator.resource.request;
 
-public class AccountDTO {
+import lombok.Data;
+
+@Data
+public class AuthenticateRequest {
 
     private String ipAddress;
     private String device;

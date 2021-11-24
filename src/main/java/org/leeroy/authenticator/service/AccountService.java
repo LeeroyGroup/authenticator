@@ -1,8 +1,12 @@
 package org.leeroy.authenticator.service;
 
+import org.leeroy.authenticator.exception.InvalidLoginAttemptException;
+import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
+import org.leeroy.authenticator.resource.request.AuthenticateRequest;
+
 public interface AccountService {
 
-    void authenticate(String ipAddress, String device);
+    String authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException, WaitBeforeTryingLoginAgainException;
 
     void forgotPassword();
 

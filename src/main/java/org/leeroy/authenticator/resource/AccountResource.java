@@ -1,5 +1,8 @@
 package org.leeroy.authenticator.resource;
 
+import org.leeroy.authenticator.exception.InvalidLoginAttemptException;
+import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
+import org.leeroy.authenticator.resource.request.AuthenticateRequest;
 import org.leeroy.authenticator.service.AccountService;
 
 import javax.inject.Inject;
@@ -15,11 +18,20 @@ public class AccountResource {
     @Inject
     AccountService accountService;
 
+    /**
+     *
+     * @param authenticateRequest
+     * @return
+     * @throws InvalidLoginAttemptException
+     * @throws WaitBeforeTryingLoginAgainException
+     */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Path("/authenticate")
-    public Response authenticate() {
-        accountService.authenticate("", "");
-        return Response.ok().build();
+    public Response authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
+            WaitBeforeTryingLoginAgainException {
+        return Response
+                .ok()
+                .entity(accountService.authenticate(authenticateRequest)).build();
     }
 }

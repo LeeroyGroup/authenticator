@@ -1,8 +1,14 @@
 package org.leeroy.authenticator.service.impl;
 
-import io.smallrye.mutiny.Uni;
+import io.quarkus.logging.Log;
+import org.leeroy.authenticator.exception.InvalidLoginAttemptException;
+import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
+import org.leeroy.authenticator.model.BlockedAccess;
+import org.leeroy.authenticator.repository.AccountRepository;
+import org.leeroy.authenticator.resource.request.AuthenticateRequest;
 import org.leeroy.authenticator.service.AccountService;
 import org.leeroy.authenticator.service.BlockedAccessService;
+import org.leeroy.authenticator.service.LoginAttemptService;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -13,14 +19,46 @@ public class AccountServiceImpl implements AccountService {
     @Inject
     BlockedAccessService blockedIPService;
 
-    @Override
-    public void authenticate(String ipAddress, String device) {
-        boolean isBlocked = blockedIPService.isBlocked(ipAddress, device);
+    @Inject
+    LoginAttemptService loginAttemptService;
 
-        if (isBlocked) {
+    @Inject
+    BlockedAccessService blockedAccessService;
+
+    @Inject
+    AccountRepository accountRepository;
+
+    @Override
+    public String authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
+            WaitBeforeTryingLoginAgainException {
+        if (blockedIPService.isBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice())) {
+            Log.error("Invalid attempt login");
+            throw new WaitBeforeTryingLoginAgainException();
 
         } else {
+            if (isUsernameAndPasswordValid(authenticateRequest.getUsername(), authenticateRequest.getPassword())) {
 
+                loginAttemptService.createLoginAttempt();
+
+                String accountId = "";
+                // TODO extract the accountId
+                accountRepository.find("username", authenticateRequest.getUsername()).firstResult();
+
+                return accountId;
+
+            } else {
+                if (loginAttemptService.getLoginAttempt(authenticateRequest.getIpAddress(),
+                        authenticateRequest.getDevice()) > 15) {
+                    blockedAccessService.blockIP(BlockedAccess.builder()
+                            .ipAddress(authenticateRequest.getIpAddress())
+                            .device(authenticateRequest.getDevice())
+                            .build());
+                }
+
+                loginAttemptService.createLoginAttempt();
+
+                throw new InvalidLoginAttemptException();
+            }
         }
     }
 
@@ -49,11 +87,11 @@ public class AccountServiceImpl implements AccountService {
 
     }
 
-    private boolean validateUsernameAndPassword(String username, String password) {
+    private boolean isUsernameAndPasswordValid(String username, String password) {
         return false;
     }
 
-    private boolean validateUsername(String username) {
+    private boolean isUsernameValid(String username) {
         return false;
     }
 
