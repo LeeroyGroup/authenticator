@@ -6,5 +6,5 @@ import org.leeroy.authenticator.model.BlockedAccess;
 import javax.enterprise.context.ApplicationScoped;
 
 @ApplicationScoped
-public class BlockedIPRepository implements ReactivePanacheMongoRepository<BlockedAccess> {
+public class BlockedAccessRepository implements ReactivePanacheMongoRepository<BlockedAccess> {
 }
