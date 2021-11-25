@@ -16,6 +16,7 @@ import org.leeroy.authenticator.service.LoginAttemptService;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
+import java.util.concurrent.atomic.AtomicReference;
 
 @ApplicationScoped
 public class AccountServiceImpl implements AccountService {
@@ -40,8 +41,10 @@ public class AccountServiceImpl implements AccountService {
     private final String BLOCKED_EXCEPTION_MESSAGE = "You have to wait a while before you try again";
 
     @Override
-    public Uni<Void> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
+    public Uni<Long> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
             WaitBeforeTryingLoginAgainException {
+
+        AtomicReference<Uni<Long>> accountId = null;
 
         blockedIPService.isBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice())
                 .onItem()
@@ -57,11 +60,11 @@ public class AccountServiceImpl implements AccountService {
                                     authenticateRequest.getUsername()
                             );
 
-                            accountRepository.find("username", authenticateRequest.getUsername())
+                            accountId.set(accountRepository.find("username", authenticateRequest.getUsername())
                                     .firstResult()
                                     .onItem()
                                     .ifNotNull()
-                                    .transform(account -> account.getId());
+                                    .transform(account -> account.getId()));
                         } else {
                             loginAttemptService.getLoginAttempts(authenticateRequest.getIpAddress(),
                                             authenticateRequest.getDevice())
@@ -87,7 +90,8 @@ public class AccountServiceImpl implements AccountService {
                         }
                     }
                 }));
-        return Uni.createFrom().voidItem();
+
+        return accountId.get();
     }
 
     @Override
@@ -100,33 +104,33 @@ public class AccountServiceImpl implements AccountService {
                 })
                 .onItem().call(() ->
                         accountRepository.hasUser(username).onItem().invoke(userExists -> {
-                            if (!userExists) {
-                                Log.error("Invalid attempt forgot password");
-                                throw new BadRequestException();
-                            }
-                        })
-                        .onItem().invoke(() -> existSetPasswordLink(username)).onItem().invoke(existSetPasswordLink -> {
-                            if (!existSetPasswordLink) {
-                                Log.error("Invalid attempt forgot password");
-                                throw new BadRequestException();
-                            }
-                        })
-                        .chain(() -> Uni.createFrom().voidItem()).call(() -> {
-                            Log.info("Login attempt by " + ipAddress + " :" + device);
-                            // TODO: Create set password token
-                            return loginAttemptService.createLoginAttempt(ipAddress, device, "", "", username)
-                                    .call(() -> emailService.sendEmail());
-                        })
-                        .onFailure().call(() -> {
-                            Log.error("Invalid attempt forgot password");
-                            return loginAttemptService.createLoginAttempt(ipAddress, device, "", "", username)
-                                    .chain(() -> loginAttemptService.getLoginAttempts(ipAddress, device))
-                                    .onItem().invoke(attempts -> {
-                                        if (attempts > 10) {
-                                            blockedAccessService.blockIP(null);
-                                        }
-                                    });
-                        }).onFailure().recoverWithUni(() -> Uni.createFrom().voidItem())
+                                    if (!userExists) {
+                                        Log.error("Invalid attempt forgot password");
+                                        throw new BadRequestException();
+                                    }
+                                })
+                                .onItem().invoke(() -> existSetPasswordLink(username)).onItem().invoke(existSetPasswordLink -> {
+                                    if (!existSetPasswordLink) {
+                                        Log.error("Invalid attempt forgot password");
+                                        throw new BadRequestException();
+                                    }
+                                })
+                                .chain(() -> Uni.createFrom().voidItem()).call(() -> {
+                                    Log.info("Login attempt by " + ipAddress + " :" + device);
+                                    // TODO: Create set password token
+                                    return loginAttemptService.createLoginAttempt(ipAddress, device, "", "", username)
+                                            .call(() -> emailService.sendEmail());
+                                })
+                                .onFailure().call(() -> {
+                                    Log.error("Invalid attempt forgot password");
+                                    return loginAttemptService.createLoginAttempt(ipAddress, device, "", "", username)
+                                            .chain(() -> loginAttemptService.getLoginAttempts(ipAddress, device))
+                                            .onItem().invoke(attempts -> {
+                                                if (attempts > 10) {
+                                                    blockedAccessService.blockIP(null);
+                                                }
+                                            });
+                                }).onFailure().recoverWithUni(() -> Uni.createFrom().voidItem())
                 )
                 .onItemOrFailure().transformToUni((item, failure) -> Uni.createFrom().voidItem());
     }
