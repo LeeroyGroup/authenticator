@@ -10,10 +10,12 @@ import org.leeroy.authenticator.repository.AccountRepository;
 import org.leeroy.authenticator.resource.request.AuthenticateRequest;
 import org.leeroy.authenticator.service.AccountService;
 import org.leeroy.authenticator.service.BlockedAccessService;
+import org.leeroy.authenticator.service.EmailService;
 import org.leeroy.authenticator.service.LoginAttemptService;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
+import javax.ws.rs.BadRequestException;
 
 @ApplicationScoped
 public class AccountServiceImpl implements AccountService {
@@ -25,10 +27,17 @@ public class AccountServiceImpl implements AccountService {
     LoginAttemptService loginAttemptService;
 
     @Inject
+    EmailService emailService;
+
+    @Inject
     BlockedAccessService blockedAccessService;
 
     @Inject
     AccountRepository accountRepository;
+
+
+    private final String FORGOT_PASSWORD_ATTEMPT_MESSAGE = "We sent you a link by e-mail so you can set the password";
+    private final String BLOCKED_EXCEPTION_MESSAGE = "You have to wait a while before you try again";
 
     @Override
     public Uni<Void> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
@@ -82,8 +91,44 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public void forgotPassword() {
-
+    public Uni<Void> forgotPassword(String ipAddress, String device, String username, String password) {
+        return blockedIPService.isBlocked(ipAddress, device).onItem().invoke(isBlocked -> {
+                    if (isBlocked) {
+                        Log.error(BLOCKED_EXCEPTION_MESSAGE);
+                        throw new BadRequestException(BLOCKED_EXCEPTION_MESSAGE);
+                    }
+                })
+                .onItem().call(() ->
+                        accountRepository.hasUser(username).onItem().invoke(userExists -> {
+                            if (!userExists) {
+                                Log.error("Invalid attempt forgot password");
+                                throw new BadRequestException();
+                            }
+                        })
+                        .onItem().invoke(() -> existSetPasswordLink(username)).onItem().invoke(existSetPasswordLink -> {
+                            if (!existSetPasswordLink) {
+                                Log.error("Invalid attempt forgot password");
+                                throw new BadRequestException();
+                            }
+                        })
+                        .chain(() -> Uni.createFrom().voidItem()).call(() -> {
+                            Log.info("Login attempt by " + ipAddress + " :" + device);
+                            // TODO: Create set password token
+                            return loginAttemptService.createLoginAttempt(ipAddress, device, "", "", username)
+                                    .call(() -> emailService.sendEmail());
+                        })
+                        .onFailure().call(() -> {
+                            Log.error("Invalid attempt forgot password");
+                            return loginAttemptService.createLoginAttempt(ipAddress, device, "", "", username)
+                                    .chain(() -> loginAttemptService.getLoginAttempts(ipAddress, device))
+                                    .onItem().invoke(attempts -> {
+                                        if (attempts > 10) {
+                                            blockedAccessService.blockIP(null);
+                                        }
+                                    });
+                        }).onFailure().recoverWithUni(() -> Uni.createFrom().voidItem())
+                )
+                .onItemOrFailure().transformToUni((item, failure) -> Uni.createFrom().voidItem());
     }
 
     @Override
@@ -114,4 +159,7 @@ public class AccountServiceImpl implements AccountService {
         return false;
     }
 
+    private Uni<Boolean> existSetPasswordLink(String username) {
+        return Uni.createFrom().item(true);
+    }
 }
