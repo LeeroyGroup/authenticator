@@ -4,7 +4,6 @@ import io.smallrye.mutiny.Uni;
 import org.jboss.logging.Logger;
 import org.leeroy.authenticator.model.LoginAttempt;
 import org.leeroy.authenticator.repository.LoginAttemptRepository;
-import org.leeroy.authenticator.resource.request.AuthenticateRequest;
 import org.leeroy.authenticator.service.LoginAttemptService;
 
 import javax.enterprise.context.ApplicationScoped;
@@ -24,13 +23,13 @@ public class LoginAttemptServiceImpl implements LoginAttemptService {
     }
 
     @Override
-    public Uni<Void> createLoginAttempt(AuthenticateRequest authenticateRequest) {
+    public Uni<Void> createLoginAttempt(String ipAddress, String device, String channel, String client, String username) {
         LoginAttempt attempt = LoginAttempt.builder()
-                .ipAddress(authenticateRequest.getIpAddress())
-                .device(authenticateRequest.getDevice())
-                .channel(authenticateRequest.getChannel())
-                .client(authenticateRequest.getClient())
-                .username(authenticateRequest.getUsername())
+                .ipAddress(ipAddress)
+                .device(device)
+                .channel(channel)
+                .client(client)
+                .username(username)
                 .build();
 
         LOG.log(Logger.Level.INFO, attempt);
