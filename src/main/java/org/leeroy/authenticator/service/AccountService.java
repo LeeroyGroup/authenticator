@@ -14,9 +14,9 @@ public interface AccountService {
 
     void changePassword(String username, String oldPassword, String newPassword);
 
-    Uni<String> createAccount(String username, String password);
+    Uni<String> createAccount(String ipAddress, String device, String username, String password);
 
-    Uni<String> createAccount(String username);
+    Uni<String> createAccount(String ipAddress, String device, String username);
 
     void deleteAccount(String username, String password);
 }

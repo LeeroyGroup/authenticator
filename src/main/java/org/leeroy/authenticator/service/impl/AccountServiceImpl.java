@@ -150,9 +150,9 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public Uni<String> createAccount(String username, String password) {
+    public Uni<String> createAccount(String ipAddress, String device, String username, String password) {
         return Uni.createFrom().voidItem()
-                .call(item -> validateNotBlocked("ipAddress", "device"))
+                .call(item -> validateNotBlocked(ipAddress, device))
                 .chain(() -> {
                     return Uni.createFrom().voidItem()
                             .call(item -> validateUsernameFormat(username))
@@ -167,9 +167,9 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public Uni<String> createAccount(String username) {
+    public Uni<String> createAccount(String ipAddress, String device, String username) {
         String password = UUID.randomUUID().toString();
-        return createAccount(username, password)
+        return createAccount(ipAddress, device, username, password)
                 .onItem().call(item -> sendSetPasswordEmail(username));
     }
 

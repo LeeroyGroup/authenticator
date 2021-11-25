@@ -41,7 +41,8 @@ public class AccountResource {
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> forgotPassword(@Context HttpServerRequest request, @PathParam("username") String username){
         String ipAddress = request.remoteAddress().hostAddress();
-        return accountService.forgotPassword(ipAddress, "", username).onItem().transform(item -> "We sent you a email which you can use to set your password");
+        String device = "";
+        return accountService.forgotPassword(ipAddress, device, username).onItem().transform(item -> "We sent you a email which you can use to set your password");
     }
 
     @PUT
@@ -49,12 +50,13 @@ public class AccountResource {
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> createAccount(@Context HttpServerRequest request, JsonObject body){
         String ipAddress = request.remoteAddress().hostAddress();
+        String device = "";
         String username = body.getString("username");
         String password = body.getString("password");
         if (password != null){
-            return accountService.createAccount(username, password);
+            return accountService.createAccount(ipAddress, device, username, password);
         } else {
-            return accountService.createAccount(username);
+            return accountService.createAccount(ipAddress, device, username);
         }
     }
 }
