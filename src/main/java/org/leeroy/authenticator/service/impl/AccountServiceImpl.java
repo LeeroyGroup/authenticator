@@ -47,7 +47,7 @@ public class AccountServiceImpl implements AccountService {
                 return accountId;
 
             } else {
-                if (loginAttemptService.getLoginAttempt(authenticateRequest.getIpAddress(),
+                if (loginAttemptService.getLoginAttempts(authenticateRequest.getIpAddress(),
                         authenticateRequest.getDevice()) > 15) {
                     blockedAccessService.blockIP(BlockedAccess.builder()
                             .ipAddress(authenticateRequest.getIpAddress())

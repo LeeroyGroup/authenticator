@@ -11,7 +11,6 @@ import java.time.LocalDateTime;
 @Data
 @Builder
 public class BlockedAccess {
-
     @BsonProperty("ip_address")
     private String ipAddress;
     private String device;
