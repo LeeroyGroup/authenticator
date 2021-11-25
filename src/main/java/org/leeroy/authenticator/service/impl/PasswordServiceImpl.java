@@ -4,6 +4,7 @@ import io.smallrye.mutiny.Uni;
 import org.leeroy.authenticator.service.PasswordService;
 
 import javax.enterprise.context.ApplicationScoped;
+import java.util.UUID;
 
 @ApplicationScoped
 public class PasswordServiceImpl implements PasswordService {
@@ -14,12 +15,13 @@ public class PasswordServiceImpl implements PasswordService {
 
     @Override
     public boolean validatePasswordStrength(String password) {
-        return false;
+        return true;
     }
 
     @Override
     public Uni<String> createSetPasswordToken(String username) {
-        return null;
+        String token = UUID.randomUUID().toString() + UUID.randomUUID().toString();
+        return Uni.createFrom().item(token);
     }
 
     @Override
