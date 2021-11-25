@@ -36,9 +36,9 @@ public class AccountServiceImpl implements AccountService {
     @Inject
     AccountRepository accountRepository;
 
-
     private final String FORGOT_PASSWORD_ATTEMPT_MESSAGE = "We sent you a link by e-mail so you can set the password";
     private final String BLOCKED_EXCEPTION_MESSAGE = "You have to wait a while before you try again";
+    private static final String INVALID_LOGIN_ATTEMPT = "Invalid attempt login";
 
     @Override
     public Uni<Long> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
@@ -48,48 +48,50 @@ public class AccountServiceImpl implements AccountService {
 
         blockedIPService.isBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice())
                 .onItem()
-                .invoke(Unchecked.consumer(isBlocked -> {
-                    if (isBlocked) {
-                        Log.error("Invalid attempt login");
+                .invoke(Unchecked.consumer(isB -> {
+                    if (isB) {
+                        Log.error(INVALID_LOGIN_ATTEMPT);
                         throw new WaitBeforeTryingLoginAgainException();
-                    } else {
-                        if (isUsernameAndPasswordValid(authenticateRequest.getUsername(), authenticateRequest.getPassword())) {
-                            loginAttemptService.createLoginAttempt(authenticateRequest.getIpAddress(), authenticateRequest.getDevice(),
-                                    authenticateRequest.getChannel(),
-                                    authenticateRequest.getClient(),
-                                    authenticateRequest.getUsername()
-                            );
-
-                            accountId.set(accountRepository.find("username", authenticateRequest.getUsername())
-                                    .firstResult()
-                                    .onItem()
-                                    .ifNotNull()
-                                    .transform(account -> account.getId()));
-                        } else {
-                            loginAttemptService.getLoginAttempts(authenticateRequest.getIpAddress(),
-                                            authenticateRequest.getDevice())
-                                    .onItem()
-                                    .transform(count -> count > 15)
-                                    .subscribe()
-                                    .with(isBlockedLoginAttempt -> {
-                                        if (isBlockedLoginAttempt) {
-                                            blockedAccessService.blockIP(BlockedAccess.builder()
-                                                    .ipAddress(authenticateRequest.getIpAddress())
-                                                    .device(authenticateRequest.getDevice())
-                                                    .build());
-                                        }
-                                    });
-
-                            loginAttemptService.createLoginAttempt(authenticateRequest.getIpAddress(), authenticateRequest.getDevice(),
-                                    authenticateRequest.getChannel(),
-                                    authenticateRequest.getClient(),
-                                    authenticateRequest.getUsername()
-                            );
-
-                            throw new InvalidLoginAttemptException();
-                        }
                     }
-                }));
+                }))
+                .invoke(() -> isUsernameAndPasswordValid(authenticateRequest.getUsername(), authenticateRequest.getPassword())
+                        .onItem().invoke(Unchecked.consumer(isUsernameAndPasswordValid -> {
+                            if (!isUsernameAndPasswordValid) {
+                                loginAttemptService.getLoginAttempts(authenticateRequest.getIpAddress(), authenticateRequest.getDevice())
+                                        .onItem()
+                                        .transform(count -> count > 15)
+                                        .onItem()
+                                        .invoke(isBlockedLoginAttempt -> {
+                                            if (isBlockedLoginAttempt) {
+                                                blockedAccessService.blockIP(BlockedAccess.builder()
+                                                        .ipAddress(authenticateRequest.getIpAddress())
+                                                        .device(authenticateRequest.getDevice())
+                                                        .build());
+                                            }
+                                        })
+                                        .invoke(() -> {
+                                            loginAttemptService.createLoginAttempt(authenticateRequest.getIpAddress(), authenticateRequest.getDevice(),
+                                                    authenticateRequest.getChannel(),
+                                                    authenticateRequest.getClient(),
+                                                    authenticateRequest.getUsername());
+                                        });
+
+                                throw new InvalidLoginAttemptException();
+                            }
+                        }))
+                )
+                .invoke(() -> {
+                    loginAttemptService.createLoginAttempt(authenticateRequest.getIpAddress(), authenticateRequest.getDevice(),
+                            authenticateRequest.getChannel(),
+                            authenticateRequest.getClient(),
+                            authenticateRequest.getUsername());
+
+                    accountId.set(accountRepository.find("username", authenticateRequest.getUsername())
+                            .firstResult()
+                            .onItem()
+                            .ifNotNull()
+                            .transform(account -> account.getId()));
+                });
 
         return accountId.get();
     }
@@ -155,8 +157,8 @@ public class AccountServiceImpl implements AccountService {
 
     }
 
-    private boolean isUsernameAndPasswordValid(String username, String password) {
-        return false;
+    private Uni<Boolean> isUsernameAndPasswordValid(String username, String password) {
+        return Uni.createFrom().item(true);
     }
 
     private boolean isUsernameValid(String username) {
