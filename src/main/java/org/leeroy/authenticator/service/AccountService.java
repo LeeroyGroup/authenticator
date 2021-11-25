@@ -10,7 +10,7 @@ public interface AccountService {
     Uni<Long> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
             WaitBeforeTryingLoginAgainException;
 
-    void forgotPassword();
+    Uni<Void> forgotPassword(String ipAddress, String device, String username, String password);
 
     void changePassword(String username, String oldPassword, String newPassword);
 

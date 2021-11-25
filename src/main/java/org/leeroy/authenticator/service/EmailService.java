@@ -1,6 +1,8 @@
 package org.leeroy.authenticator.service;
 
+import io.smallrye.mutiny.Uni;
+
 public interface EmailService {
 
-    void sendEmail();
+    Uni<Void> sendEmail();
 }

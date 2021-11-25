@@ -1,6 +1,7 @@
 package org.leeroy.authenticator.service.impl;
 
 import io.quarkus.mongodb.panache.reactive.ReactivePanacheQuery;
+import io.smallrye.mutiny.Uni;
 import org.leeroy.authenticator.model.BlockedAccess;
 import org.leeroy.authenticator.repository.BlockedAccessRepository;
 import org.leeroy.authenticator.service.BlockedAccessService;
@@ -16,7 +17,7 @@ public class BlockedAccessServiceImpl implements BlockedAccessService {
     BlockedAccessRepository blockedAccessRepository;
 
     @Override
-    public boolean isBlocked(String ipAddress, String device) {
+    public Uni<Boolean> isBlocked(String ipAddress, String device) {
 
         ReactivePanacheQuery<BlockedAccess> blockedAccess = blockedAccessRepository
                 .find("ipAddress = ?1 and device = ?2 and timestamp >= ?3",
@@ -24,15 +25,11 @@ public class BlockedAccessServiceImpl implements BlockedAccessService {
                         device,
                         LocalDateTime.now().minusMinutes(15));
 
-        Long numRecords = blockedAccess.count()
-                .map(i -> i)
-                .await().indefinitely();
-
-        return numRecords > 0;
+        return blockedAccess.count().onItem().transform(count -> count != 0);
     }
 
     @Override
-    public void blockIP(BlockedAccess blockedAccess) {
-        blockedAccessRepository.persist(blockedAccess);
+    public Uni<Void> blockIP(BlockedAccess blockedAccess) {
+        return blockedAccessRepository.persist(blockedAccess).chain(entity -> Uni.createFrom().voidItem());
     }
 }
