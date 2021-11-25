@@ -39,7 +39,13 @@ public class AccountServiceImpl implements AccountService {
         } else {
             if (isUsernameAndPasswordValid(authenticateRequest.getUsername(), authenticateRequest.getPassword())) {
 
-                loginAttemptService.createLoginAttempt(authenticateRequest);
+                loginAttemptService.createLoginAttempt(
+                        authenticateRequest.getIpAddress(),
+                        authenticateRequest.getDevice(),
+                        authenticateRequest.getChannel(),
+                        authenticateRequest.getClient(),
+                        authenticateRequest.getUsername()
+                );
 
                 return accountRepository.find("username", authenticateRequest.getUsername())
                         .firstResult()
@@ -59,7 +65,13 @@ public class AccountServiceImpl implements AccountService {
                                 .device(authenticateRequest.getDevice())
                                 .build()));
 
-                loginAttemptService.createLoginAttempt(authenticateRequest);
+                loginAttemptService.createLoginAttempt(
+                        authenticateRequest.getIpAddress(),
+                        authenticateRequest.getDevice(),
+                        authenticateRequest.getChannel(),
+                        authenticateRequest.getClient(),
+                        authenticateRequest.getUsername()
+                );
 
                 throw new InvalidLoginAttemptException();
             }
