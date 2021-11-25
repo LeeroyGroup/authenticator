@@ -1,10 +1,11 @@
 package org.leeroy.authenticator.service;
 
 import io.smallrye.mutiny.Uni;
+import org.leeroy.authenticator.resource.request.AuthenticateRequest;
 
 public interface LoginAttemptService {
 
     Uni<Long> getLoginAttempts(String ipAddress, String device);
 
-    Uni<Void> createLoginAttempt(String ipAddress, String device, String channel, String client, String username);
+    Uni<Void> createLoginAttempt(AuthenticateRequest authenticateRequest);
 }

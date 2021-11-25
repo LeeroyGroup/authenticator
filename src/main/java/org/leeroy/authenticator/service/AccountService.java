@@ -1,12 +1,14 @@
 package org.leeroy.authenticator.service;
 
+import io.smallrye.mutiny.Uni;
 import org.leeroy.authenticator.exception.InvalidLoginAttemptException;
 import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
 import org.leeroy.authenticator.resource.request.AuthenticateRequest;
 
 public interface AccountService {
 
-    String authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException, WaitBeforeTryingLoginAgainException;
+    Uni<Long> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
+            WaitBeforeTryingLoginAgainException;
 
     void forgotPassword();
 

@@ -1,6 +1,7 @@
 package org.leeroy.authenticator.service.impl;
 
 import io.quarkus.logging.Log;
+import io.smallrye.mutiny.Uni;
 import org.leeroy.authenticator.exception.InvalidLoginAttemptException;
 import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
 import org.leeroy.authenticator.model.BlockedAccess;
@@ -29,7 +30,7 @@ public class AccountServiceImpl implements AccountService {
     AccountRepository accountRepository;
 
     @Override
-    public String authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
+    public Uni<Long> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
             WaitBeforeTryingLoginAgainException {
         if (blockedIPService.isBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice())) {
             Log.error("Invalid attempt login");
@@ -38,24 +39,27 @@ public class AccountServiceImpl implements AccountService {
         } else {
             if (isUsernameAndPasswordValid(authenticateRequest.getUsername(), authenticateRequest.getPassword())) {
 
-                loginAttemptService.createLoginAttempt();
+                loginAttemptService.createLoginAttempt(authenticateRequest);
 
-                String accountId = "";
-                // TODO extract the accountId
-                accountRepository.find("username", authenticateRequest.getUsername()).firstResult();
-
-                return accountId;
+                return accountRepository.find("username", authenticateRequest.getUsername())
+                        .firstResult()
+                        .onItem()
+                        .ifNotNull()
+                        .transform(account -> account.getId());
 
             } else {
-                if (loginAttemptService.getLoginAttempts(authenticateRequest.getIpAddress(),
-                        authenticateRequest.getDevice()) > 15) {
-                    blockedAccessService.blockIP(BlockedAccess.builder()
-                            .ipAddress(authenticateRequest.getIpAddress())
-                            .device(authenticateRequest.getDevice())
-                            .build());
-                }
 
-                loginAttemptService.createLoginAttempt();
+                loginAttemptService.getLoginAttempts(authenticateRequest.getIpAddress(),
+                                authenticateRequest.getDevice())
+                        .onItem()
+                        .transform(count -> count > 15)
+                        .subscribe()
+                        .with(isBlocked -> blockedAccessService.blockIP(BlockedAccess.builder()
+                                .ipAddress(authenticateRequest.getIpAddress())
+                                .device(authenticateRequest.getDevice())
+                                .build()));
+
+                loginAttemptService.createLoginAttempt(authenticateRequest);
 
                 throw new InvalidLoginAttemptException();
             }
