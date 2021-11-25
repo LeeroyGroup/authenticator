@@ -5,6 +5,7 @@ import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
 import org.leeroy.authenticator.exception.InvalidLoginAttemptException;
 import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
+import org.leeroy.authenticator.model.Account;
 import org.leeroy.authenticator.model.BlockedAccess;
 import org.leeroy.authenticator.repository.AccountRepository;
 import org.leeroy.authenticator.resource.request.AuthenticateRequest;
@@ -13,6 +14,7 @@ import org.leeroy.authenticator.service.*;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 @ApplicationScoped
@@ -41,10 +43,10 @@ public class AccountServiceImpl implements AccountService {
     private final String BLOCKED_EXCEPTION_MESSAGE = "You have to wait a while before you try again";
 
     @Override
-    public Uni<Long> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
+    public Uni<String> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
             WaitBeforeTryingLoginAgainException {
 
-        AtomicReference<Uni<Long>> accountId = null;
+        AtomicReference<Uni<String>> accountId = null;
 
         blockedIPService.isBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice())
                 .onItem()
@@ -142,13 +144,18 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public void createAccount(String username, String password) {
-
+    public Uni<String> createAccount(String username, String password) {
+        String id = UUID.randomUUID().toString();
+        Account account = Account.builder().id(id).username(username).password(password).build();
+        return accountRepository.persist(account).onItem().transform(entity -> entity.getId());
     }
 
     @Override
-    public void createAccount(String username) {
-
+    public Uni<String> createAccount(String username) {
+        String id = UUID.randomUUID().toString();
+        String password = UUID.randomUUID().toString();
+        Account account = Account.builder().id(id).username(username).password(password).build();
+        return accountRepository.persist(account).onItem().transform(entity -> entity.getId());
     }
 
     @Override

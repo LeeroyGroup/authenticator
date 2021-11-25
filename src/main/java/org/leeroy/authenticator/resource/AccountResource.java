@@ -2,6 +2,7 @@ package org.leeroy.authenticator.resource;
 
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.http.HttpServerRequest;
+import io.vertx.core.json.JsonObject;
 import org.leeroy.authenticator.exception.InvalidLoginAttemptException;
 import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
 import org.leeroy.authenticator.resource.request.AuthenticateRequest;
@@ -41,5 +42,19 @@ public class AccountResource {
     public Uni<String> forgotPassword(@Context HttpServerRequest request, @PathParam("username") String username){
         String ipAddress = request.remoteAddress().hostAddress();
         return accountService.forgotPassword(ipAddress, "", username).onItem().transform(item -> "We sent you a email which you can use to set your password");
+    }
+
+    @PUT
+    @Path("/create-account")
+    @Produces(MediaType.TEXT_PLAIN)
+    public Uni<String> createAccount(@Context HttpServerRequest request, JsonObject body){
+        String ipAddress = request.remoteAddress().hostAddress();
+        String username = body.getString("username");
+        String password = body.getString("password");
+        if (password != null){
+            return accountService.createAccount(username, password);
+        } else {
+            return accountService.createAccount(username);
+        }
     }
 }
