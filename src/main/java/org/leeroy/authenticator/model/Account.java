@@ -1,11 +1,10 @@
 package org.leeroy.authenticator.model;
 
-import io.quarkus.mongodb.panache.common.MongoEntity;
+import io.quarkus.mongodb.panache.PanacheMongoEntity;
 import lombok.Data;
 
-@MongoEntity
 @Data
-public class Account {
+public class Account extends PanacheMongoEntity {
 
     private Long id;
     private String username;

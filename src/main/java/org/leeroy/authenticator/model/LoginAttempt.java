@@ -2,9 +2,11 @@ package org.leeroy.authenticator.model;
 
 import io.quarkus.mongodb.panache.PanacheMongoEntity;
 import lombok.Builder;
+import lombok.Data;
 
 import java.time.LocalDateTime;
 
+@Data
 @Builder
 public class LoginAttempt extends PanacheMongoEntity {
     private String ipAddress;

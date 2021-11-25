@@ -95,7 +95,7 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public Uni<Void> forgotPassword(String ipAddress, String device, String username, String password) {
+    public Uni<Void> forgotPassword(String ipAddress, String device, String username) {
         return blockedIPService.isBlocked(ipAddress, device).onItem().invoke(isBlocked -> {
                     if (isBlocked) {
                         Log.error(BLOCKED_EXCEPTION_MESSAGE);
