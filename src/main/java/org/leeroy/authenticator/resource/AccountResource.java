@@ -42,7 +42,7 @@ public class AccountResource {
     public Uni<String> forgotPassword(@Context HttpServerRequest request, @PathParam("username") String username){
         String ipAddress = request.remoteAddress().hostAddress();
         String device = "";
-        return accountService.forgotPassword(ipAddress, device, username).onItem().transform(item -> "We sent you a email which you can use to set your password");
+        return accountService.forgotPassword(ipAddress, device, username, "").onItem().transform(item -> "We sent you a email which you can use to set your password");
     }
 
     @PUT
