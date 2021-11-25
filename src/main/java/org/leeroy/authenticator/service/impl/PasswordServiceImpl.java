@@ -3,6 +3,9 @@ package org.leeroy.authenticator.service.impl;
 import io.smallrye.mutiny.Uni;
 import org.leeroy.authenticator.service.PasswordService;
 
+import javax.enterprise.context.ApplicationScoped;
+
+@ApplicationScoped
 public class PasswordServiceImpl implements PasswordService {
     @Override
     public Uni<String> hashPassword(String password) {
