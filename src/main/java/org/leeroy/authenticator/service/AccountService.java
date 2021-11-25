@@ -7,16 +7,16 @@ import org.leeroy.authenticator.resource.request.AuthenticateRequest;
 
 public interface AccountService {
 
-    Uni<Long> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
+    Uni<String> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
             WaitBeforeTryingLoginAgainException;
 
-    Uni<Void> forgotPassword(String ipAddress, String device, String username, String password);
+    Uni<Void> forgotPassword(String ipAddress, String device, String username);
 
     void changePassword(String username, String oldPassword, String newPassword);
 
-    void createAccount(String username, String password);
+    Uni<String> createAccount(String ipAddress, String device, String username, String password);
 
-    void createAccount(String username);
+    Uni<String> createAccount(String ipAddress, String device, String username);
 
     void deleteAccount(String username, String password);
 }

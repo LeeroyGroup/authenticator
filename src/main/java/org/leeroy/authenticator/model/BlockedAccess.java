@@ -1,16 +1,15 @@
 package org.leeroy.authenticator.model;
 
-import io.quarkus.mongodb.panache.common.MongoEntity;
+import io.quarkus.mongodb.panache.PanacheMongoEntity;
 import lombok.Builder;
 import lombok.Data;
 import org.bson.codecs.pojo.annotations.BsonProperty;
 
 import java.time.LocalDateTime;
 
-@MongoEntity(collection = "blocked_ip")
 @Data
 @Builder
-public class BlockedAccess {
+public class BlockedAccess extends PanacheMongoEntity {
     @BsonProperty("ip_address")
     private String ipAddress;
     private String device;
