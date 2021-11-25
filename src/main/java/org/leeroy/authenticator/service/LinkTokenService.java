@@ -1,8 +1,10 @@
 package org.leeroy.authenticator.service;
 
+import io.smallrye.mutiny.Uni;
+
 public interface LinkTokenService {
 
-    void createPasswordToken();
+    Uni<Void> createSetPasswordToken(String username);
 
     boolean hasTokenExpired(String token);
 

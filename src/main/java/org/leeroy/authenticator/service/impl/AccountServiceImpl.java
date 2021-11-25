@@ -7,10 +7,7 @@ import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
 import org.leeroy.authenticator.model.BlockedAccess;
 import org.leeroy.authenticator.repository.AccountRepository;
 import org.leeroy.authenticator.resource.request.AuthenticateRequest;
-import org.leeroy.authenticator.service.AccountService;
-import org.leeroy.authenticator.service.BlockedAccessService;
-import org.leeroy.authenticator.service.EmailService;
-import org.leeroy.authenticator.service.LoginAttemptService;
+import org.leeroy.authenticator.service.*;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -24,6 +21,9 @@ public class AccountServiceImpl implements AccountService {
 
     @Inject
     LoginAttemptService loginAttemptService;
+
+    @Inject
+    PasswordService passwordService;
 
     @Inject
     EmailService emailService;
@@ -110,9 +110,10 @@ public class AccountServiceImpl implements AccountService {
                         })
                         .chain(() -> Uni.createFrom().voidItem()).call(() -> {
                             Log.info("Login attempt by " + ipAddress + " :" + device);
-                            // TODO: Create set password token
                             return loginAttemptService.createLoginAttempt(ipAddress, device, "", "", username)
-                                    .call(() -> emailService.sendEmail());
+                                    .chain(() -> passwordService.createSetPasswordToken(username))
+                                    .chain(token -> getSetPasswordEmailContent(token))
+                                    .call(emailContent -> emailService.sendEmail(username, emailContent));
                         })
                         .onFailure().call(() -> {
                             Log.error("Invalid attempt forgot password");
@@ -146,6 +147,10 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public void deleteAccount(String username, String password) {
 
+    }
+
+    private Uni<String> getSetPasswordEmailContent(String token) {
+        return Uni.createFrom().item("Email:" + token);
     }
 
     private boolean isUsernameAndPasswordValid(String username, String password) {
