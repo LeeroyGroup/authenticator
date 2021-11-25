@@ -19,7 +19,6 @@ public class AccountResource {
     AccountService accountService;
 
     /**
-     *
      * @param authenticateRequest
      * @return
      * @throws InvalidLoginAttemptException
@@ -30,8 +29,7 @@ public class AccountResource {
     @Path("/authenticate")
     public Response authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
             WaitBeforeTryingLoginAgainException {
-        return Response
-                .ok()
-                .entity(accountService.authenticate(authenticateRequest)).build();
+        accountService.authenticate(authenticateRequest);
+        return Response.ok().build();
     }
 }

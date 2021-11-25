@@ -2,6 +2,7 @@ package org.leeroy.authenticator.service.impl;
 
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.unchecked.Unchecked;
 import org.leeroy.authenticator.exception.InvalidLoginAttemptException;
 import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
 import org.leeroy.authenticator.model.BlockedAccess;
@@ -30,52 +31,54 @@ public class AccountServiceImpl implements AccountService {
     AccountRepository accountRepository;
 
     @Override
-    public Uni<Long> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
+    public Uni<Void> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
             WaitBeforeTryingLoginAgainException {
-        if (blockedIPService.isBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice())) {
-            Log.error("Invalid attempt login");
-            throw new WaitBeforeTryingLoginAgainException();
 
-        } else {
-            if (isUsernameAndPasswordValid(authenticateRequest.getUsername(), authenticateRequest.getPassword())) {
+        blockedIPService.isBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice())
+                .onItem()
+                .invoke(Unchecked.consumer(isBlocked -> {
+                    if (isBlocked) {
+                        Log.error("Invalid attempt login");
+                        throw new WaitBeforeTryingLoginAgainException();
+                    } else {
+                        if (isUsernameAndPasswordValid(authenticateRequest.getUsername(), authenticateRequest.getPassword())) {
+                            loginAttemptService.createLoginAttempt(authenticateRequest.getIpAddress(), authenticateRequest.getDevice(),
+                                    authenticateRequest.getChannel(),
+                                    authenticateRequest.getClient(),
+                                    authenticateRequest.getUsername()
+                            );
 
-                loginAttemptService.createLoginAttempt(
-                        authenticateRequest.getIpAddress(),
-                        authenticateRequest.getDevice(),
-                        authenticateRequest.getChannel(),
-                        authenticateRequest.getClient(),
-                        authenticateRequest.getUsername()
-                );
+                            accountRepository.find("username", authenticateRequest.getUsername())
+                                    .firstResult()
+                                    .onItem()
+                                    .ifNotNull()
+                                    .transform(account -> account.getId());
+                        } else {
+                            loginAttemptService.getLoginAttempts(authenticateRequest.getIpAddress(),
+                                            authenticateRequest.getDevice())
+                                    .onItem()
+                                    .transform(count -> count > 15)
+                                    .subscribe()
+                                    .with(isBlockedLoginAttempt -> {
+                                        if (isBlockedLoginAttempt) {
+                                            blockedAccessService.blockIP(BlockedAccess.builder()
+                                                    .ipAddress(authenticateRequest.getIpAddress())
+                                                    .device(authenticateRequest.getDevice())
+                                                    .build());
+                                        }
+                                    });
 
-                return accountRepository.find("username", authenticateRequest.getUsername())
-                        .firstResult()
-                        .onItem()
-                        .ifNotNull()
-                        .transform(account -> account.getId());
+                            loginAttemptService.createLoginAttempt(authenticateRequest.getIpAddress(), authenticateRequest.getDevice(),
+                                    authenticateRequest.getChannel(),
+                                    authenticateRequest.getClient(),
+                                    authenticateRequest.getUsername()
+                            );
 
-            } else {
-
-                loginAttemptService.getLoginAttempts(authenticateRequest.getIpAddress(),
-                                authenticateRequest.getDevice())
-                        .onItem()
-                        .transform(count -> count > 15)
-                        .subscribe()
-                        .with(isBlocked -> blockedAccessService.blockIP(BlockedAccess.builder()
-                                .ipAddress(authenticateRequest.getIpAddress())
-                                .device(authenticateRequest.getDevice())
-                                .build()));
-
-                loginAttemptService.createLoginAttempt(
-                        authenticateRequest.getIpAddress(),
-                        authenticateRequest.getDevice(),
-                        authenticateRequest.getChannel(),
-                        authenticateRequest.getClient(),
-                        authenticateRequest.getUsername()
-                );
-
-                throw new InvalidLoginAttemptException();
-            }
-        }
+                            throw new InvalidLoginAttemptException();
+                        }
+                    }
+                }));
+        return Uni.createFrom().voidItem();
     }
 
     @Override
