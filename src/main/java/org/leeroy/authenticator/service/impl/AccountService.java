@@ -19,25 +19,6 @@ import java.util.UUID;
 @ApplicationScoped
 public class AccountService extends AccountServiceBase {
 
-    private AccountRepository accountRepository;
-    private BlockedAccessService blockedAccessService;
-    private LoginAttemptService loginAttemptService;
-    private PasswordService passwordService;
-    private EmailService emailService;
-
-    @Inject
-    public AccountService(AccountRepository accountRepository, BlockedAccessService blockedAccessService,
-                          LoginAttemptService loginAttemptService, PasswordService passwordService,
-                          EmailService emailService) {
-        super(accountRepository, blockedAccessService, loginAttemptService, passwordService, emailService);
-        this.accountRepository = accountRepository;
-        this.blockedAccessService = blockedAccessService;
-        this.loginAttemptService = loginAttemptService;
-        this.passwordService = passwordService;
-        this.emailService = emailService;
-    }
-
-
     public Uni<Object> authenticate(AuthenticateRequest authenticateRequest) {
         return Uni.createFrom().voidItem()
                 .call(item -> super.validateNotBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice()))
@@ -87,12 +68,12 @@ public class AccountService extends AccountServiceBase {
 
     public Uni<String> createAccount(String ipAddress, String device, String username, String password) {
         return Uni.createFrom().voidItem()
-                .call(item -> super.validateNotBlocked(ipAddress, device))
+                .call(item -> validateNotBlocked(ipAddress, device))
                 .chain(() -> {
                     return Uni.createFrom().voidItem()
-                            .call(item -> super.validateUsernameFormat(username))
-                            .call(item -> super.validatePasswordStrength(password))
-                            .call(item -> super.validateUsernameNotTaken(username))
+                            .call(item -> validateUsernameFormat(username))
+                            .call(item -> validatePasswordStrength(password))
+                            .call(item -> validateUsernameNotTaken(username))
                             .onItem().transformToUni(item -> {
                                 Account account = Account.builder().username(username).password(password).build();
                                 return accountRepository.persist(account).onItem().transform(entity -> entity.id.toString());
@@ -103,7 +84,7 @@ public class AccountService extends AccountServiceBase {
     public Uni<String> createAccount(String ipAddress, String device, String username) {
         String password = UUID.randomUUID().toString();
         return createAccount(ipAddress, device, username, password)
-                .onItem().call(item -> super.sendSetPasswordEmail(username));
+                .onItem().call(item -> sendSetPasswordEmail(username));
     }
 
     public void changePassword(String username, String oldPassword, String newPassword) {
