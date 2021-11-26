@@ -14,6 +14,7 @@ import org.leeroy.authenticator.service.*;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 @ApplicationScoped
@@ -160,9 +161,8 @@ public class AccountServiceImpl implements AccountService {
                             .call(item -> validatePasswordStrength(password))
                             .call(item -> validateUsernameNotTaken(username))
                             .onItem().transformToUni(item -> {
-                                String id = UUID.randomUUID().toString();
-                                Account account = Account.builder().id(id).username(username).password(password).build();
-                                return accountRepository.persist(account).onItem().transform(entity -> entity.id);
+                                Account account = Account.builder().username(username).password(password).build();
+                                return accountRepository.persist(account).onItem().transform(entity -> entity.id.toString());
                             });
                 });
     }
