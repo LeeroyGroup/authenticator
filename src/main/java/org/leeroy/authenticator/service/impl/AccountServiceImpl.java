@@ -5,17 +5,16 @@ import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
 import org.leeroy.authenticator.exception.InvalidLoginAttemptException;
 import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
+import org.leeroy.authenticator.model.Account;
 import org.leeroy.authenticator.model.BlockedAccess;
 import org.leeroy.authenticator.repository.AccountRepository;
 import org.leeroy.authenticator.resource.request.AuthenticateRequest;
-import org.leeroy.authenticator.service.AccountService;
-import org.leeroy.authenticator.service.BlockedAccessService;
-import org.leeroy.authenticator.service.EmailService;
-import org.leeroy.authenticator.service.LoginAttemptService;
+import org.leeroy.authenticator.service.*;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
+import java.util.concurrent.atomic.AtomicReference;
 
 @ApplicationScoped
 public class AccountServiceImpl implements AccountService {
@@ -27,6 +26,9 @@ public class AccountServiceImpl implements AccountService {
     LoginAttemptService loginAttemptService;
 
     @Inject
+    PasswordService passwordService;
+
+    @Inject
     EmailService emailService;
 
     @Inject
@@ -35,9 +37,14 @@ public class AccountServiceImpl implements AccountService {
     @Inject
     AccountRepository accountRepository;
 
-    private final String FORGOT_PASSWORD_ATTEMPT_MESSAGE = "We sent you a link by e-mail so you can set the password";
-    private final String BLOCKED_EXCEPTION_MESSAGE = "You have to wait a while before you try again";
+
+    private static final String INVALID_EMAIL = "Invalid email";
+    private static final String INVALID_PASSWORD_STRENGTH = "Invalid password strength";
     private static final String INVALID_LOGIN_ATTEMPT = "Invalid attempt login";
+    private static final String USERNAME_ALREADY_EXIST = "Username already exist";
+
+    private static final String FORGOT_PASSWORD_ATTEMPT_MESSAGE = "We sent you a link by e-mail so you can set the password";
+    private static final String BLOCKED_EXCEPTION_MESSAGE = "You have to wait a while before you try again";
 
     @Override
     public Uni<Object> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
@@ -95,44 +102,47 @@ public class AccountServiceImpl implements AccountService {
     }
 
     @Override
-    public Uni<Void> forgotPassword(String ipAddress, String device, String username, String password) {
+    public Uni<Void> forgotPassword(String ipAddress, String device, String username) {
         return blockedIPService.isBlocked(ipAddress, device).onItem().invoke(isBlocked -> {
                     if (isBlocked) {
                         Log.error(BLOCKED_EXCEPTION_MESSAGE);
                         throw new BadRequestException(BLOCKED_EXCEPTION_MESSAGE);
                     }
                 })
-                .onItem().call(() ->
-                        accountRepository.hasUser(username).onItem().invoke(userExists -> {
-                                    if (!userExists) {
+                .onItem().call(() -> {
+                            return accountRepository.hasUser(username).invoke(userExists -> {
+                                        if (!userExists) {
+                                            Log.error("Invalid attempt forgot password");
+                                            throw new BadRequestException();
+                                        }
+                                    }).chain(() -> existSetPasswordLink(username)).invoke(existSetPasswordLink -> {
+                                        if (!existSetPasswordLink) {
+                                            Log.error("Invalid attempt forgot password");
+                                            throw new BadRequestException();
+                                        }
+                                    })
+                                    .invoke(() -> Log.info("Login attempt by " + ipAddress + " :" + device))
+                                    .call(() -> sendSetPasswordEmail(username))
+                                    .onFailure().call(() -> {
                                         Log.error("Invalid attempt forgot password");
-                                        throw new BadRequestException();
-                                    }
-                                })
-                                .onItem().invoke(() -> existSetPasswordLink(username)).onItem().invoke(existSetPasswordLink -> {
-                                    if (!existSetPasswordLink) {
-                                        Log.error("Invalid attempt forgot password");
-                                        throw new BadRequestException();
-                                    }
-                                })
-                                .chain(() -> Uni.createFrom().voidItem()).call(() -> {
-                                    Log.info("Login attempt by " + ipAddress + " :" + device);
-                                    // TODO: Create set password token
-                                    return loginAttemptService.createLoginAttempt(ipAddress, device, "", "", username)
-                                            .call(() -> emailService.sendEmail("", ""));
-                                })
-                                .onFailure().call(() -> {
-                                    Log.error("Invalid attempt forgot password");
-                                    return loginAttemptService.createLoginAttempt(ipAddress, device, "", "", username)
-                                            .chain(() -> loginAttemptService.getLoginAttempts(ipAddress, device))
-                                            .onItem().invoke(attempts -> {
-                                                if (attempts > 10) {
-                                                    blockedAccessService.blockIP(null);
-                                                }
-                                            });
-                                }).onFailure().recoverWithUni(() -> Uni.createFrom().voidItem())
+                                        return loginAttemptService.createLoginAttempt(ipAddress, device, "", "", username)
+                                                .chain(() -> loginAttemptService.getLoginAttempts(ipAddress, device))
+                                                .onItem().invoke(attempts -> {
+                                                    if (attempts > 10) {
+                                                        blockedAccessService.blockIP(null);
+                                                    }
+                                                });
+                                    });
+                        }
                 )
                 .onItemOrFailure().transformToUni((item, failure) -> Uni.createFrom().voidItem());
+    }
+
+    private Uni<Void> sendSetPasswordEmail(String username) {
+        return passwordService.createSetPasswordToken(username)
+                .chain(token -> getSetPasswordEmailContent(token))
+                .call(emailContent -> emailService.sendEmail(username, emailContent))
+                .chain(item -> Uni.createFrom().voidItem());
     }
 
     @Override
@@ -142,12 +152,59 @@ public class AccountServiceImpl implements AccountService {
 
     @Override
     public Uni<String> createAccount(String ipAddress, String device, String username, String password) {
-        return null;
+        return Uni.createFrom().voidItem()
+                .call(item -> validateNotBlocked(ipAddress, device))
+                .chain(() -> {
+                    return Uni.createFrom().voidItem()
+                            .call(item -> validateUsernameFormat(username))
+                            .call(item -> validatePasswordStrength(password))
+                            .call(item -> validateUsernameNotTaken(username))
+                            .onItem().transformToUni(item -> {
+                                String id = UUID.randomUUID().toString();
+                                Account account = Account.builder().id(id).username(username).password(password).build();
+                                return accountRepository.persist(account).onItem().transform(entity -> entity.id);
+                            });
+                });
     }
 
     @Override
     public Uni<String> createAccount(String ipAddress, String device, String username) {
-        return null;
+        String password = UUID.randomUUID().toString();
+        return createAccount(ipAddress, device, username, password)
+                .onItem().call(item -> sendSetPasswordEmail(username));
+    }
+
+    private Uni<Void> validateNotBlocked(String ipAddress, String device) {
+        return blockedIPService.isBlocked("ipAddress", "device").onItem().invoke(isBlocked -> {
+            if (isBlocked) {
+                Log.error(BLOCKED_EXCEPTION_MESSAGE);
+                throw new BadRequestException(BLOCKED_EXCEPTION_MESSAGE);
+            }
+        }).chain(() -> Uni.createFrom().voidItem());
+    }
+
+    private Uni<Void> validateUsernameFormat(String username) {
+        boolean isValidUsername = isUsernameValid(username);
+        if (!isValidUsername) {
+            throw new BadRequestException(INVALID_EMAIL);
+        }
+        return Uni.createFrom().voidItem();
+    }
+
+    private Uni<Void> validateUsernameNotTaken(String username) {
+        return accountRepository.hasUser(username).invoke(hasUser -> {
+            if (hasUser) {
+                throw new BadRequestException(USERNAME_ALREADY_EXIST);
+            }
+        }).chain(item -> Uni.createFrom().voidItem());
+    }
+
+    private Uni<Void> validatePasswordStrength(String password) {
+        boolean isValidPassword = passwordService.validatePasswordStrength(password);
+        if (!isValidPassword) {
+            throw new BadRequestException(INVALID_PASSWORD_STRENGTH);
+        }
+        return Uni.createFrom().voidItem();
     }
 
     @Override
@@ -155,12 +212,16 @@ public class AccountServiceImpl implements AccountService {
 
     }
 
+    private Uni<String> getSetPasswordEmailContent(String token) {
+        return Uni.createFrom().item("Email:" + token);
+    }
+
     private Uni<Boolean> isUsernameAndPasswordValid(String username, String password) {
         return Uni.createFrom().item(true);
     }
 
     private boolean isUsernameValid(String username) {
-        return false;
+        return true;
     }
 
     private Uni<Boolean> existSetPasswordLink(String username) {
