@@ -16,7 +16,6 @@ import org.leeroy.authenticator.service.LoginAttemptService;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
-import java.util.concurrent.atomic.AtomicReference;
 
 @ApplicationScoped
 public class AccountServiceImpl implements AccountService {
@@ -44,9 +43,7 @@ public class AccountServiceImpl implements AccountService {
     public Uni<Object> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
             WaitBeforeTryingLoginAgainException {
 
-        AtomicReference<Uni<Object>> accountId = null;
-
-        blockedIPService.isBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice())
+        return blockedIPService.isBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice())
                 .onItem()
                 .invoke(Unchecked.consumer(isBlocked -> {
                     if (isBlocked) {
@@ -55,7 +52,8 @@ public class AccountServiceImpl implements AccountService {
                     }
                 }))
                 .invoke(() -> isUsernameAndPasswordValid(authenticateRequest.getUsername(), authenticateRequest.getPassword())
-                        .onItem().invoke(Unchecked.consumer(isUsernameAndPasswordValid -> {
+                        .onItem()
+                        .invoke(Unchecked.consumer(isUsernameAndPasswordValid -> {
                             if (!isUsernameAndPasswordValid) {
                                 loginAttemptService.getLoginAttempts(authenticateRequest.getIpAddress(), authenticateRequest.getDevice())
                                         .onItem()
@@ -80,20 +78,20 @@ public class AccountServiceImpl implements AccountService {
                             }
                         }))
                 )
-                .invoke(() -> {
-                    loginAttemptService.createLoginAttempt(authenticateRequest.getIpAddress(), authenticateRequest.getDevice(),
-                            authenticateRequest.getChannel(),
-                            authenticateRequest.getClient(),
-                            authenticateRequest.getUsername());
+                .chain(() ->
+                        loginAttemptService.createLoginAttempt(authenticateRequest.getIpAddress(), authenticateRequest.getDevice(),
+                                        authenticateRequest.getChannel(),
+                                        authenticateRequest.getClient(),
+                                        authenticateRequest.getUsername())
+                                .chain(() ->
+                                        accountRepository.find("username", authenticateRequest.getUsername())
+                                                .firstResult()
+                                                .onItem()
+                                                .ifNotNull()
+                                                .transform(account -> account.id.toString())
+                                )
 
-                    accountId.set(accountRepository.find("username", authenticateRequest.getUsername())
-                            .firstResult()
-                            .onItem()
-                            .ifNotNull()
-                            .transform(account -> account.id));
-                });
-
-        return accountId.get();
+                );
     }
 
     @Override
@@ -121,7 +119,7 @@ public class AccountServiceImpl implements AccountService {
                                     Log.info("Login attempt by " + ipAddress + " :" + device);
                                     // TODO: Create set password token
                                     return loginAttemptService.createLoginAttempt(ipAddress, device, "", "", username)
-                                            .call(() -> emailService.sendEmail("",""));
+                                            .call(() -> emailService.sendEmail("", ""));
                                 })
                                 .onFailure().call(() -> {
                                     Log.error("Invalid attempt forgot password");
