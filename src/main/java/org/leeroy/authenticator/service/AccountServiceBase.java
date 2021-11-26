@@ -4,6 +4,7 @@ import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import org.leeroy.authenticator.exception.InvalidLoginAttemptException;
 import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
+import org.leeroy.authenticator.model.BlockedAccess;
 import org.leeroy.authenticator.repository.AccountRepository;
 import org.leeroy.authenticator.resource.request.AuthenticateRequest;
 
@@ -75,6 +76,28 @@ public abstract class AccountServiceBase {
         return Uni.createFrom().voidItem();
     }
 
+    protected Uni<Void> validateUsernamePassword(String username, String password, String ipAddress, String device, String client, String channel) {
+        if (!isUsernameAndPasswordValid(username, password)) {
+            loginAttemptService.getLoginAttempts(ipAddress, device)
+                    .onItem()
+                    .transform(count -> count > 15)
+                    .onItem()
+                    .invoke(isBlockedLoginAttempt -> {
+                        if (isBlockedLoginAttempt) {
+                            blockedAccessService.blockIP(BlockedAccess.builder()
+                                    .ipAddress(ipAddress)
+                                    .device(device)
+                                    .build());
+                        }
+                    })
+                    .invoke(() -> {
+                        loginAttemptService.createLoginAttempt(ipAddress, device, channel, client, username);
+                    });
+            throw new BadRequestException(INVALID_LOGIN_ATTEMPT);
+        }
+        return Uni.createFrom().voidItem();
+    }
+
     protected Uni<Void> validateUsernameNotTaken(String username) {
         return accountRepository.hasUser(username).invoke(hasUser -> {
             if (hasUser) {
@@ -91,8 +114,8 @@ public abstract class AccountServiceBase {
         return Uni.createFrom().voidItem();
     }
 
-    protected Uni<Boolean> isUsernameAndPasswordValid(String username, String password) {
-        return Uni.createFrom().item(true);
+    private boolean isUsernameAndPasswordValid(String username, String password) {
+        return true;
     }
 
     private boolean isUsernameValid(String username) {
@@ -101,6 +124,14 @@ public abstract class AccountServiceBase {
 
     protected Uni<Boolean> existSetPasswordLink(String username) {
         return Uni.createFrom().item(true);
+    }
+
+    protected Uni<Object> getAccountId(String username) {
+        return accountRepository.find("username", username)
+                .firstResult()
+                .onItem()
+                .ifNotNull()
+                .transform(account -> account.id.toString());
     }
 
 }

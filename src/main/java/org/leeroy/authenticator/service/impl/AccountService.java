@@ -38,58 +38,15 @@ public class AccountService extends AccountServiceBase {
     }
 
 
-    public Uni<Object> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
-            WaitBeforeTryingLoginAgainException {
-
-        return blockedAccessService.isBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice())
-                .onItem()
-                .invoke(Unchecked.consumer(isBlocked -> {
-                    if (isBlocked) {
-                        Log.error(INVALID_LOGIN_ATTEMPT);
-                        throw new WaitBeforeTryingLoginAgainException();
-                    }
-                }))
-                .invoke(() -> super.isUsernameAndPasswordValid(authenticateRequest.getUsername(), authenticateRequest.getPassword())
-                        .onItem()
-                        .invoke(Unchecked.consumer(isUsernameAndPasswordValid -> {
-                            if (!isUsernameAndPasswordValid) {
-                                loginAttemptService.getLoginAttempts(authenticateRequest.getIpAddress(), authenticateRequest.getDevice())
-                                        .onItem()
-                                        .transform(count -> count > 15)
-                                        .onItem()
-                                        .invoke(isBlockedLoginAttempt -> {
-                                            if (isBlockedLoginAttempt) {
-                                                blockedAccessService.blockIP(BlockedAccess.builder()
-                                                        .ipAddress(authenticateRequest.getIpAddress())
-                                                        .device(authenticateRequest.getDevice())
-                                                        .build());
-                                            }
-                                        })
-                                        .invoke(() -> {
-                                            loginAttemptService.createLoginAttempt(authenticateRequest.getIpAddress(), authenticateRequest.getDevice(),
-                                                    authenticateRequest.getChannel(),
-                                                    authenticateRequest.getClient(),
-                                                    authenticateRequest.getUsername());
-                                        });
-
-                                throw new InvalidLoginAttemptException();
-                            }
-                        }))
-                )
-                .chain(() ->
-                        loginAttemptService.createLoginAttempt(authenticateRequest.getIpAddress(), authenticateRequest.getDevice(),
-                                        authenticateRequest.getChannel(),
-                                        authenticateRequest.getClient(),
-                                        authenticateRequest.getUsername())
-                                .chain(() ->
-                                        accountRepository.find("username", authenticateRequest.getUsername())
-                                                .firstResult()
-                                                .onItem()
-                                                .ifNotNull()
-                                                .transform(account -> account.id.toString())
-                                )
-
-                );
+    public Uni<Object> authenticate(AuthenticateRequest authenticateRequest) {
+        return Uni.createFrom().voidItem()
+                .call(item -> super.validateNotBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice()))
+                .chain(item -> super.validateUsernamePassword(authenticateRequest.getUsername(), authenticateRequest.getPassword(),
+                        authenticateRequest.getIpAddress(), authenticateRequest.getDevice(), authenticateRequest.getClient(), authenticateRequest.getChannel()))
+                .chain(() -> loginAttemptService.createLoginAttempt(authenticateRequest.getIpAddress(),
+                        authenticateRequest.getDevice(), authenticateRequest.getChannel(),
+                        authenticateRequest.getClient(), authenticateRequest.getUsername()))
+                .chain(() -> super.getAccountId(authenticateRequest.getUsername()));
     }
 
     public Uni<Void> forgotPassword(String ipAddress, String device, String username) {
