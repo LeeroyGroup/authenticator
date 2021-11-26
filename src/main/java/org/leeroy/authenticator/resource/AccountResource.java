@@ -6,7 +6,7 @@ import io.vertx.core.json.JsonObject;
 import org.leeroy.authenticator.exception.InvalidLoginAttemptException;
 import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
 import org.leeroy.authenticator.resource.request.AuthenticateRequest;
-import org.leeroy.authenticator.service.AccountService;
+import org.leeroy.authenticator.service.AccountServiceBase;
 
 import javax.inject.Inject;
 import javax.ws.rs.*;
@@ -18,7 +18,7 @@ import javax.ws.rs.core.Response;
 public class AccountResource {
 
     @Inject
-    AccountService accountService;
+    AccountServiceBase accountService;
 
     /**
      * @param authenticateRequest
