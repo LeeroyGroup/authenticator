@@ -7,15 +7,21 @@ import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
 import org.leeroy.authenticator.repository.AccountRepository;
 import org.leeroy.authenticator.resource.request.AuthenticateRequest;
 
+import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
 
 public abstract class AccountServiceBase {
 
-    private AccountRepository accountRepository;
-    private BlockedAccessService blockedAccessService;
-    private LoginAttemptService loginAttemptService;
-    private PasswordService passwordService;
-    private EmailService emailService;
+    @Inject
+    protected AccountRepository accountRepository;
+    @Inject
+    protected BlockedAccessService blockedAccessService;
+    @Inject
+    protected LoginAttemptService loginAttemptService;
+    @Inject
+    protected PasswordService passwordService;
+    @Inject
+    protected EmailService emailService;
 
     protected static final String BLOCKED_EXCEPTION_MESSAGE = "You have to wait a while before you try again";
     private static final String USERNAME_ALREADY_EXIST = "Username already exist";
@@ -23,16 +29,6 @@ public abstract class AccountServiceBase {
     private static final String INVALID_PASSWORD_STRENGTH = "Invalid password strength";
     protected static final String INVALID_LOGIN_ATTEMPT = "Invalid attempt login";
     private static final String FORGOT_PASSWORD_ATTEMPT_MESSAGE = "We sent you a link by e-mail so you can set the password";
-
-    public AccountServiceBase(AccountRepository accountRepository, BlockedAccessService blockedAccessService,
-                              LoginAttemptService loginAttemptService, PasswordService passwordService,
-                              EmailService emailService) {
-        this.accountRepository = accountRepository;
-        this.blockedAccessService = blockedAccessService;
-        this.loginAttemptService = loginAttemptService;
-        this.passwordService = passwordService;
-        this.emailService = emailService;
-    }
 
     public abstract Uni<Object> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
             WaitBeforeTryingLoginAgainException;
@@ -96,7 +92,7 @@ public abstract class AccountServiceBase {
     }
 
     private boolean isUsernameValid(String username) {
-        return true;
+        return emailService.isValidEmail(username);
     }
 
     protected Uni<Boolean> existSetPasswordLink(String username) {
