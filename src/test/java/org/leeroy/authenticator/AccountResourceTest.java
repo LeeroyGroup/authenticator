@@ -71,4 +71,12 @@ public class AccountResourceTest {
                 .then()
                 .statusCode(200);
     }
+
+    @Test
+    public void testCreateAccountPasswordNone() {
+        given().body(ResourceLoader.load("create-account/create_account_password_valid_none.json"))
+                .when().post("create-account")
+                .then()
+                .statusCode(200);
+    }
 }
