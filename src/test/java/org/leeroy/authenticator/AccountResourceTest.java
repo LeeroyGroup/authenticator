@@ -5,6 +5,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.mockito.InjectMock;
 import io.restassured.http.ContentType;
 import io.smallrye.mutiny.Uni;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.leeroy.ResourceLoader;
@@ -32,6 +33,10 @@ public class AccountResourceTest {
     @BeforeEach
     public void clearAccounts() {
         accountRepository.deleteAll().subscribeAsCompletionStage();
+
+        Mockito.when(blockedAccessService.isBlocked("127.0.0.1", "android"))
+                .thenReturn(Uni.createFrom().item(false));
+
     }
 
     @Test
@@ -135,9 +140,6 @@ public class AccountResourceTest {
 
     @Test
     public void authenticate() {
-        Mockito.when(blockedAccessService.isBlocked("127.0.0.1", "android"))
-                .thenReturn(Uni.createFrom().item(false));
-
         given()
                 .contentType(ContentType.JSON)
                 .body(AuthenticateRequest.builder()
