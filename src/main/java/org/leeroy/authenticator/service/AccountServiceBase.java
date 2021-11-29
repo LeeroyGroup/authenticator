@@ -52,10 +52,14 @@ public abstract class AccountServiceBase {
     }
 
     protected Uni<Void> validateNotBlocked(String ipAddress, String device) {
+        Log.info("validateNotBlocked:" + ipAddress);
         return blockedAccessService.isBlocked("ipAddress", "device").onItem().invoke(isBlocked -> {
             if (isBlocked) {
                 Log.error(BLOCKED_EXCEPTION_MESSAGE);
                 throw new BadRequestException(BLOCKED_EXCEPTION_MESSAGE);
+            }
+            else{
+                Log.info("IP not blocked");
             }
         }).chain(() -> Uni.createFrom().voidItem());
     }
@@ -73,6 +77,7 @@ public abstract class AccountServiceBase {
     }
 
     protected Uni<Void> validateUsernamePassword(String username, String password, String ipAddress, String device, String client, String channel) {
+        Log.info("validateUsernamePassword");
         if (!isUsernameAndPasswordValid(username, password)) {
             loginAttemptService.getLoginAttempts(ipAddress, device)
                     .onItem()

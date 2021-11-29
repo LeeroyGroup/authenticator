@@ -2,17 +2,11 @@ package org.leeroy.authenticator.service.impl;
 
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.unchecked.Unchecked;
-import org.leeroy.authenticator.exception.InvalidLoginAttemptException;
-import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
 import org.leeroy.authenticator.model.Account;
-import org.leeroy.authenticator.model.BlockedAccess;
-import org.leeroy.authenticator.repository.AccountRepository;
 import org.leeroy.authenticator.resource.request.AuthenticateRequest;
-import org.leeroy.authenticator.service.*;
+import org.leeroy.authenticator.service.AccountServiceBase;
 
 import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
 import java.util.UUID;
 
@@ -20,6 +14,7 @@ import java.util.UUID;
 public class AccountService extends AccountServiceBase {
 
     public Uni<Object> authenticate(AuthenticateRequest authenticateRequest) {
+        Log.info("authenticate");
         return Uni.createFrom().voidItem()
                 .call(item -> super.validateNotBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice()))
                 .chain(item -> super.validateUsernamePassword(authenticateRequest.getUsername(), authenticateRequest.getPassword(),

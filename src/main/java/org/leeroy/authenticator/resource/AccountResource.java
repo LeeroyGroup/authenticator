@@ -29,11 +29,11 @@ public class AccountResource {
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Path("/authenticate")
-    public Response authenticate(@Context HttpServerRequest request,
-                                 AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
+    public Uni<Object> authenticate(@Context HttpServerRequest request,
+                                    AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
             WaitBeforeTryingLoginAgainException {
         String ipAddress = request.remoteAddress().hostAddress();
-        return Response.ok().entity(accountService.authenticate(authenticateRequest)).build();
+        return accountService.authenticate(authenticateRequest);
     }
 
 

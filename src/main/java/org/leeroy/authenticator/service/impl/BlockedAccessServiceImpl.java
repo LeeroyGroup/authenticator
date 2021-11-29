@@ -1,5 +1,6 @@
 package org.leeroy.authenticator.service.impl;
 
+import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import org.leeroy.authenticator.model.BlockedAccess;
 import org.leeroy.authenticator.repository.BlockedAccessRepository;
@@ -17,6 +18,7 @@ public class BlockedAccessServiceImpl implements BlockedAccessService {
 
     @Override
     public Uni<Boolean> isBlocked(String ipAddress, String device) {
+        Log.info("isBlocked");
 
         return blockedAccessRepository.find("ipAddress = ?1 and device = ?2 and timestamp >= ?3",
                         ipAddress,
