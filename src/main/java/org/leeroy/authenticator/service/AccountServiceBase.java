@@ -36,13 +36,15 @@ public abstract class AccountServiceBase {
 
     public abstract Uni<Void> forgotPassword(String ipAddress, String device, String username);
 
-    public abstract void changePassword(String username, String oldPassword, String newPassword);
+    public abstract Uni<Void> changePassword(String username, String oldPassword, String newPassword);
+
+    public abstract Uni<Void> setPassword(String token, String password);
 
     public abstract Uni<String> createAccount(String ipAddress, String device, String username, String password);
 
     public abstract Uni<String> createAccount(String ipAddress, String device, String username);
 
-    public abstract void deleteAccount(String username, String password);
+    public abstract Uni<Void> deleteAccount(String username, String password);
 
     protected Uni<Void> sendSetPasswordEmail(String username) {
         return passwordService.createSetPasswordToken(username)
@@ -72,8 +74,12 @@ public abstract class AccountServiceBase {
         return Uni.createFrom().voidItem();
     }
 
-    protected Uni<Void> validateUsernamePassword(String username, String password, String ipAddress, String device, String client, String channel) {
-        if (!isUsernameAndPasswordValid(username, password)) {
+    protected Uni<Void> validateUsernamePassword(String username, String password) {
+        return Uni.createFrom().voidItem();
+    }
+
+    protected Uni<Void> createAttempt(String ipAddress, String device, String client, String channel, String username, boolean valid) {
+        if (!valid) {
             loginAttemptService.getLoginAttempts(ipAddress, device)
                     .onItem()
                     .transform(count -> count > 15)
@@ -111,11 +117,11 @@ public abstract class AccountServiceBase {
     }
 
     protected Uni<Void> validatePasswordStrength(String password) {
-        boolean isValidPassword = passwordService.validatePasswordStrength(password);
-        if (!isValidPassword) {
-            throw new BadRequestException(INVALID_PASSWORD_STRENGTH);
-        }
-        return Uni.createFrom().voidItem();
+        return passwordService.validatePasswordStrength(password).invoke(isValidPassword -> {
+                if (!isValidPassword) {
+                    throw new BadRequestException(INVALID_PASSWORD_STRENGTH);
+                }
+        }).chain(() -> Uni.createFrom().voidItem());
     }
 
     private boolean isUsernameAndPasswordValid(String username, String password) {

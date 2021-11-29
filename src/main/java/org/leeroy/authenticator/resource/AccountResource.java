@@ -61,4 +61,32 @@ public class AccountResource {
             return accountService.createAccount(ipAddress, device, username);
         }
     }
+
+    @PUT
+    @Path("/set-password")
+    @Produces(MediaType.TEXT_PLAIN)
+    public Uni<String> setPassword(@Context HttpServerRequest request, JsonObject body) {
+        String token = body.getString("token");
+        String password = body.getString("password");
+        return accountService.setPassword(token, password).onItem().transform(item -> "Password changed");
+    }
+
+    @PUT
+    @Path("/change-password")
+    @Produces(MediaType.TEXT_PLAIN)
+    public Uni<String> changePassword(@Context HttpServerRequest request, JsonObject body) {
+        String username = body.getString("username");
+        String oldPassword = body.getString("oldPassword");
+        String newPassword = body.getString("newPassword");
+        return accountService.changePassword(username, oldPassword, newPassword).onItem().transform(item -> "Password changed");
+    }
+
+    @POST
+    @Path("/delete-account")
+    @Produces(MediaType.TEXT_PLAIN)
+    public Uni<String> deleteAccount(@Context HttpServerRequest request, JsonObject body) {
+        String username = body.getString("username");
+        String password = body.getString("password");
+        return accountService.deleteAccount(username, password).onItem().transform(item -> "Account deleted");
+    }
 }

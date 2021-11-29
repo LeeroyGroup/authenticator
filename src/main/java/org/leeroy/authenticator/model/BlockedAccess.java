@@ -5,14 +5,14 @@ import lombok.Builder;
 import lombok.Data;
 import org.bson.codecs.pojo.annotations.BsonProperty;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Data
 @Builder
 public class BlockedAccess extends PanacheMongoEntity {
     @BsonProperty("ip_address")
-    private String ipAddress;
-    private String device;
-    private LocalDateTime timestamp;
-    private String reason;
+    public String ipAddress;
+    public String device;
+    public Instant timestamp;
+    public String reason;
 }

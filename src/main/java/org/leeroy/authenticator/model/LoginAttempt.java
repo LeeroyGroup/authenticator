@@ -4,15 +4,15 @@ import io.quarkus.mongodb.panache.PanacheMongoEntity;
 import lombok.Builder;
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
 @Data
 @Builder
 public class LoginAttempt extends PanacheMongoEntity {
-    private String ipAddress;
-    private String device;
-    private String channel;
-    private String client;
-    private String username;
-    private LocalDateTime timestamp;
+    public String ipAddress;
+    public String device;
+    public String channel;
+    public String client;
+    public String username;
+    public Instant timestamp;
 }

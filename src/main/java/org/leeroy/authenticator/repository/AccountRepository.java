@@ -12,7 +12,16 @@ public class AccountRepository implements ReactivePanacheMongoRepository<Account
         return find("username", username).firstResult();
     }
 
+    public Uni<Boolean> deleteByUsername(String username) {
+        return delete("username", username).map(count -> count != 0) ;
+    }
+
     public Uni<Boolean> hasUser(String username) {
         return find("username", username).count().map(count -> count != 0);
+    }
+
+    public Uni<Void> setPassword(String username, String newPassword) {
+        return update("password", newPassword).where("username", username)
+                .chain(() -> Uni.createFrom().voidItem());
     }
 }

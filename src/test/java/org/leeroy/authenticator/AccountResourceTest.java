@@ -26,7 +26,7 @@ public class AccountResourceTest {
 
     @Test
     public void testCreateAccountPasswordNoDigitOrSpecial() {
-        given().body(ResourceLoader.load("create-account/create_account_password_invalid_no_digit_or_special.json"))
+        given().body(ResourceLoader.load("create-account/password_invalid_no_digit_or_special.json"))
                 .when().post("create-account")
                 .then()
                 .statusCode(400);
@@ -34,7 +34,7 @@ public class AccountResourceTest {
 
     @Test
     public void testCreateAccountPasswordNoLowerCase() {
-        given().body(ResourceLoader.load("create-account/create_account_password_invalid_no_lower_case.json"))
+        given().body(ResourceLoader.load("create-account/password_invalid_no_lower_case.json"))
                 .when().post("create-account")
                 .then()
                 .statusCode(400);
@@ -42,7 +42,7 @@ public class AccountResourceTest {
 
     @Test
     public void testCreateAccountPasswordNoUpperCase() {
-        given().body(ResourceLoader.load("create-account/create_account_password_invalid_no_upper_case.json"))
+        given().body(ResourceLoader.load("create-account/password_invalid_no_upper_case.json"))
                 .when().post("create-account")
                 .then()
                 .statusCode(400);
@@ -50,7 +50,7 @@ public class AccountResourceTest {
 
     @Test
     public void testCreateAccountPasswordDigit() {
-        given().body(ResourceLoader.load("create-account/create_account_password_valid_digit.json"))
+        given().body(ResourceLoader.load("create-account/password_valid_digit.json"))
                 .when().post("create-account")
                 .then()
                 .statusCode(200);
@@ -58,7 +58,7 @@ public class AccountResourceTest {
 
     @Test
     public void testCreateAccountPasswordSpecial() {
-        given().body(ResourceLoader.load("create-account/create_account_password_valid_special.json"))
+        given().body(ResourceLoader.load("create-account/password_valid_special.json"))
                 .when().post("create-account")
                 .then()
                 .statusCode(200);
@@ -66,7 +66,7 @@ public class AccountResourceTest {
 
     @Test
     public void testCreateAccountPasswordLong() {
-        given().body(ResourceLoader.load("create-account/create_account_password_valid_long.json"))
+        given().body(ResourceLoader.load("create-account/password_valid_long.json"))
                 .when().post("create-account")
                 .then()
                 .statusCode(200);
@@ -74,7 +74,7 @@ public class AccountResourceTest {
 
     @Test
     public void testCreateAccountPasswordNone() {
-        given().body(ResourceLoader.load("create-account/create_account_password_valid_none.json"))
+        given().body(ResourceLoader.load("create-account/password_valid_none.json"))
                 .when().post("create-account")
                 .then()
                 .statusCode(200);
@@ -83,15 +83,43 @@ public class AccountResourceTest {
     @Test
     public void testForgotPassword() {
         // First create account
-        given().body(ResourceLoader.load("forgot-password/forgot_password_create_account.json"))
+        given().body(ResourceLoader.load("forgot-password/create_account.json"))
                 .when().post("create-account")
                 .then()
                 .statusCode(200);
 
-        given().body(ResourceLoader.load("forgot-password/forgot_password_valid.json"))
+        given().body(ResourceLoader.load("forgot-password/password_valid.json"))
                 .when().put("forgot-password")
                 .then()
                 .statusCode(200);
 
+    }
+
+    @Test
+    public void testChangePassword() {
+        // First create account
+        given().body(ResourceLoader.load("change-password/create_account.json"))
+                .when().post("create-account")
+                .then()
+                .statusCode(200);
+
+        given().body(ResourceLoader.load("change-password/password_valid.json"))
+                .when().put("change-password")
+                .then()
+                .statusCode(200);
+    }
+
+    @Test
+    public void testDeletePassword() {
+        // First create account
+        given().body(ResourceLoader.load("delete-account/create_account.json"))
+                .when().post("create-account")
+                .then()
+                .statusCode(200);
+
+        given().body(ResourceLoader.load("delete-account/password_valid.json"))
+                .when().post("delete-account")
+                .then()
+                .statusCode(200);
     }
 }
