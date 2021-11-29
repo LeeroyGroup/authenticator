@@ -46,7 +46,7 @@ public class AccountResource {
         return accountService.forgotPassword(ipAddress, device, username).onItem().transform(item -> "We sent you a email which you can use to set your password");
     }
 
-    @PUT
+    @POST
     @Path("/create-account")
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> createAccount(@Context HttpServerRequest request, JsonObject body) {
