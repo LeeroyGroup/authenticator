@@ -7,7 +7,6 @@ import lombok.Data;
 @Data
 @Builder
 public class Account extends PanacheMongoEntity {
-
-    private String username;
-    private String password;
+    public String username;
+    public String password;
 }
