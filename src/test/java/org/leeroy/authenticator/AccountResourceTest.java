@@ -79,4 +79,19 @@ public class AccountResourceTest {
                 .then()
                 .statusCode(200);
     }
+
+    @Test
+    public void testForgotPassword() {
+        // First create account
+        given().body(ResourceLoader.load("forgot-password/forgot_password_create_account.json"))
+                .when().post("create-account")
+                .then()
+                .statusCode(200);
+
+        given().body(ResourceLoader.load("forgot-password/forgot_password_valid.json"))
+                .when().put("forgot-password")
+                .then()
+                .statusCode(200);
+
+    }
 }

@@ -102,6 +102,14 @@ public abstract class AccountServiceBase {
         }).chain(item -> Uni.createFrom().voidItem());
     }
 
+    protected Uni<Void> validateUsernameExist(String username) {
+        return accountRepository.hasUser(username).invoke(hasUser -> {
+            if (!hasUser) {
+                throw new BadRequestException(USERNAME_ALREADY_EXIST);
+            }
+        }).chain(item -> Uni.createFrom().voidItem());
+    }
+
     protected Uni<Void> validatePasswordStrength(String password) {
         boolean isValidPassword = passwordService.validatePasswordStrength(password);
         if (!isValidPassword) {
@@ -120,6 +128,15 @@ public abstract class AccountServiceBase {
 
     protected Uni<Boolean> existSetPasswordLink(String username) {
         return Uni.createFrom().item(true);
+    }
+
+    public Uni<Void> validatePasswordLink(String username) {
+        return existSetPasswordLink(username).invoke(existSetPasswordLink -> {
+            if (!existSetPasswordLink) {
+                Log.error("Invalid attempt forgot password");
+                throw new BadRequestException();
+            }
+        }).chain(() -> Uni.createFrom().voidItem());
     }
 
     protected Uni<Object> getAccountId(String username) {

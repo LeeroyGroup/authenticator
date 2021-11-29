@@ -38,11 +38,12 @@ public class AccountResource {
 
 
     @PUT
-    @Path("/forgot-password/{username}")
+    @Path("/forgot-password")
     @Produces(MediaType.TEXT_PLAIN)
-    public Uni<String> forgotPassword(@Context HttpServerRequest request, @PathParam("username") String username) {
+    public Uni<String> forgotPassword(@Context HttpServerRequest request, JsonObject body) {
         String ipAddress = request.remoteAddress().hostAddress();
         String device = "";
+        String username = body.getString("username");
         return accountService.forgotPassword(ipAddress, device, username).onItem().transform(item -> "We sent you a email which you can use to set your password");
     }
 
