@@ -20,24 +20,19 @@ public class PasswordServiceImpl implements PasswordService {
     @Inject
     PasswordTokenRepository passwordTokenRepository;
 
-    @Override
-    public Uni<String> hashPassword(String password) {
-        String hash = null;
-        Argon2 argon2 = Argon2Factory.create(Argon2Factory.Argon2Types.ARGON2id, 32, 64);
-
-        try {
-            hash = argon2.hash(22, 65536, 1, password.toCharArray());
-
-        } finally {
-            argon2.wipeArray(password.toCharArray());
-        }
-        return Uni.createFrom().item(hash);
-    }
-
     private static Pattern containsUpperCaseLetter = Pattern.compile("[A-Z]+");
     private static Pattern containsLowerCaseLetter = Pattern.compile("[a-z]+");
     private static Pattern containsDigit = Pattern.compile("[0-9]+");
     private static Pattern containsSpecialCharacter = Pattern.compile("[.#?!@$%^&*_-]+");
+
+    private Argon2 argon2 = Argon2Factory.create(Argon2Factory.Argon2Types.ARGON2id, 32, 64);
+
+    @Override
+    public Uni<String> hashPassword(String password) {
+        String hash = argon2.hash(22, 65536, 1, password.toCharArray());
+        argon2.wipeArray(password.toCharArray());
+        return Uni.createFrom().item(hash);
+    }
 
     @Override
     public Uni<Boolean> validatePasswordStrength(String password) {

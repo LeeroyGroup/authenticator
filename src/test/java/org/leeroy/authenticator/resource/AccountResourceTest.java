@@ -1,20 +1,12 @@
-package org.leeroy.authenticator;
+package org.leeroy.authenticator.resource;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.junit.mockito.InjectMock;
-import io.restassured.http.ContentType;
-import io.smallrye.mutiny.Uni;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.leeroy.ResourceLoader;
 import org.leeroy.authenticator.repository.AccountRepository;
-import org.leeroy.authenticator.resource.AccountResource;
-import org.leeroy.authenticator.resource.request.AuthenticateRequest;
 import org.leeroy.authenticator.service.BlockedAccessService;
-import org.leeroy.authenticator.service.impl.AccountService;
-import org.mockito.Mockito;
 
 import javax.inject.Inject;
 
@@ -24,7 +16,7 @@ import static io.restassured.RestAssured.given;
 @TestHTTPEndpoint(AccountResource.class)
 public class AccountResourceTest {
 
-    @InjectMock
+    @Inject
     BlockedAccessService blockedAccessService;
 
     @Inject
@@ -33,10 +25,6 @@ public class AccountResourceTest {
     @BeforeEach
     public void clearAccounts() {
         accountRepository.deleteAll().subscribeAsCompletionStage();
-
-        Mockito.when(blockedAccessService.isBlocked("127.0.0.1", "android"))
-                .thenReturn(Uni.createFrom().item(false));
-
     }
 
     @Test
@@ -140,14 +128,16 @@ public class AccountResourceTest {
 
     @Test
     public void authenticate() {
-        given()
-                .contentType(ContentType.JSON)
-                .body(AuthenticateRequest.builder()
-                        .ipAddress("127.0.0.1")
-                        .device("android").build())
-                .when().post("authenticate")
+        // First create account
+        given().body(ResourceLoader.load("authenticate/create_account.json"))
+                .when().post("create-account")
                 .then()
-                .statusCode(204);
+                .statusCode(200);
+
+        given().body(ResourceLoader.load("authenticate/password_valid.json"))
+                .when().post("authenticate-account")
+                .then()
+                .statusCode(200);
     }
 
 }

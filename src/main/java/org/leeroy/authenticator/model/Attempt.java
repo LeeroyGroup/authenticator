@@ -1,14 +1,11 @@
 package org.leeroy.authenticator.model;
 
-import io.quarkus.mongodb.panache.PanacheMongoEntity;
-import lombok.Builder;
-import lombok.Data;
+import org.bson.types.ObjectId;
 
 import java.time.Instant;
 
-@Data
-@Builder
-public class LoginAttempt extends PanacheMongoEntity {
+public class Attempt {
+    public ObjectId id;
     public String ipAddress;
     public String device;
     public String channel;

@@ -1,4 +1,4 @@
-package org.leeroy.authenticator;
+package org.leeroy.authenticator.resource;
 
 import io.quarkus.test.junit.NativeImageTest;
 

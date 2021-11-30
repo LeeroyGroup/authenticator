@@ -2,11 +2,8 @@ package org.leeroy.authenticator.service;
 
 import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
-import org.leeroy.authenticator.exception.InvalidLoginAttemptException;
-import org.leeroy.authenticator.exception.WaitBeforeTryingLoginAgainException;
-import org.leeroy.authenticator.model.BlockedAccess;
 import org.leeroy.authenticator.repository.AccountRepository;
-import org.leeroy.authenticator.resource.request.AuthenticateRequest;
+import org.leeroy.authenticator.resource.ClientID;
 
 import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
@@ -18,7 +15,7 @@ public abstract class AccountServiceBase {
     @Inject
     protected BlockedAccessService blockedAccessService;
     @Inject
-    protected LoginAttemptService loginAttemptService;
+    protected AttemptService attemptService;
     @Inject
     protected PasswordService passwordService;
     @Inject
@@ -31,20 +28,19 @@ public abstract class AccountServiceBase {
     protected static final String INVALID_LOGIN_ATTEMPT = "Invalid attempt login";
     private static final String FORGOT_PASSWORD_ATTEMPT_MESSAGE = "We sent you a link by e-mail so you can set the password";
 
-    public abstract Uni<Object> authenticate(AuthenticateRequest authenticateRequest) throws InvalidLoginAttemptException,
-            WaitBeforeTryingLoginAgainException;
+    public abstract Uni<String> authenticate(ClientID clientID, String username, String password);
 
-    public abstract Uni<Void> forgotPassword(String ipAddress, String device, String username);
+    public abstract Uni<Void> forgotPassword(ClientID clientID, String username);
 
-    public abstract Uni<Void> changePassword(String username, String oldPassword, String newPassword);
+    public abstract Uni<Void> changePassword(ClientID clientID, String username, String currentPassword, String newPassword);
 
-    public abstract Uni<Void> setPassword(String token, String password);
+    public abstract Uni<Void> setPassword(ClientID clientID, String token, String password);
 
-    public abstract Uni<String> createAccount(String ipAddress, String device, String username, String password);
+    public abstract Uni<String> createAccount(ClientID clientID, String username, String password);
 
-    public abstract Uni<String> createAccount(String ipAddress, String device, String username);
+    public abstract Uni<String> createAccount(ClientID clientID, String username);
 
-    public abstract Uni<Void> deleteAccount(String username, String password);
+    public abstract Uni<Void> deleteAccount(ClientID clientID, String username, String password);
 
     protected Uni<Void> sendSetPasswordEmail(String username) {
         return passwordService.createSetPasswordToken(username)
@@ -53,8 +49,8 @@ public abstract class AccountServiceBase {
                 .chain(item -> Uni.createFrom().voidItem());
     }
 
-    protected Uni<Void> validateNotBlocked(String ipAddress, String device) {
-        return blockedAccessService.isBlocked("ipAddress", "device").onItem().invoke(isBlocked -> {
+    protected Uni<Void> validateNotBlocked(ClientID clientID) {
+        return blockedAccessService.isBlocked(clientID).onItem().invoke(isBlocked -> {
             if (isBlocked) {
                 Log.error(BLOCKED_EXCEPTION_MESSAGE);
                 throw new BadRequestException(BLOCKED_EXCEPTION_MESSAGE);
@@ -78,22 +74,19 @@ public abstract class AccountServiceBase {
         return Uni.createFrom().voidItem();
     }
 
-    protected Uni<Void> createAttempt(String ipAddress, String device, String client, String channel, String username, boolean valid) {
+    protected Uni<Void> createAttempt(ClientID clientID, String username, String attemptType, boolean valid) {
         if (!valid) {
-            loginAttemptService.getLoginAttempts(ipAddress, device)
+            attemptService.getAttempts(clientID)
                     .onItem()
                     .transform(count -> count > 15)
                     .onItem()
                     .invoke(isBlockedLoginAttempt -> {
                         if (isBlockedLoginAttempt) {
-                            blockedAccessService.blockIP(BlockedAccess.builder()
-                                    .ipAddress(ipAddress)
-                                    .device(device)
-                                    .build());
+                            blockedAccessService.block(clientID, attemptType);
                         }
                     })
                     .invoke(() -> {
-                        loginAttemptService.createLoginAttempt(ipAddress, device, channel, client, username);
+                        attemptService.createAttempt(clientID, username, attemptType, valid);
                     });
             throw new BadRequestException(INVALID_LOGIN_ATTEMPT);
         }
@@ -150,13 +143,4 @@ public abstract class AccountServiceBase {
             }
         }).chain(() -> Uni.createFrom().voidItem());
     }
-
-    protected Uni<Object> getAccountId(String username) {
-        return accountRepository.find("username", username)
-                .firstResult()
-                .onItem()
-                .ifNotNull()
-                .transform(account -> account.id.toString());
-    }
-
 }

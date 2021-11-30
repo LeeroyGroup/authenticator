@@ -1,6 +1,6 @@
 package org.leeroy.authenticator.resource.request;
 
-public class AuthenticateRequest {
+public class DeleteAccountRequest {
     public String username;
     public String password;
 }

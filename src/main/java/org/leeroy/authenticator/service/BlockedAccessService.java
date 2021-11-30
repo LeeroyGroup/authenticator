@@ -1,12 +1,12 @@
 package org.leeroy.authenticator.service;
 
 import io.smallrye.mutiny.Uni;
-import org.leeroy.authenticator.model.BlockedAccess;
+import org.leeroy.authenticator.resource.ClientID;
 
 public interface BlockedAccessService {
 
-    Uni<Boolean> isBlocked(String ipAddress, String device);
+    Uni<Boolean> isBlocked(ClientID clientID);
 
-    Uni<Void> blockIP(BlockedAccess blockedAccess);
+    Uni<Void> block(ClientID clientID, String reason);
 
 }

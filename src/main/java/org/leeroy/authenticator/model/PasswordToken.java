@@ -1,10 +1,11 @@
 package org.leeroy.authenticator.model;
 
-import io.quarkus.mongodb.panache.PanacheMongoEntity;
+import org.bson.types.ObjectId;
 
 import java.time.Instant;
 
-public class PasswordToken extends PanacheMongoEntity {
+public class PasswordToken {
+    public ObjectId id;
     public String token;
     public String username;
     public Instant timestamp;

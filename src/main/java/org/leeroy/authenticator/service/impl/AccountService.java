@@ -4,7 +4,7 @@ import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import org.leeroy.authenticator.model.Account;
 import org.leeroy.authenticator.repository.PasswordTokenRepository;
-import org.leeroy.authenticator.resource.request.AuthenticateRequest;
+import org.leeroy.authenticator.resource.ClientID;
 import org.leeroy.authenticator.service.AccountServiceBase;
 
 import javax.enterprise.context.ApplicationScoped;
@@ -17,69 +17,70 @@ public class AccountService extends AccountServiceBase {
     @Inject
     protected PasswordTokenRepository passwordTokenRepository;
 
-    public Uni<Object> authenticate(AuthenticateRequest authenticateRequest) {
+    public Uni<String> authenticate(ClientID clientID, String username, String password) {
         return Uni.createFrom().voidItem()
-                .call(item -> super.validateNotBlocked(authenticateRequest.getIpAddress(), authenticateRequest.getDevice()))
-                .chain(item -> super.validateUsernamePassword(authenticateRequest.getUsername(), authenticateRequest.getPassword())
-                .onFailure().call(() -> createAttempt(authenticateRequest.getIpAddress(), authenticateRequest.getDevice(), authenticateRequest.getClient(), authenticateRequest.getChannel(), authenticateRequest.getUsername(), false)))
-                .chain(() -> loginAttemptService.createLoginAttempt(authenticateRequest.getIpAddress(),
-                        authenticateRequest.getDevice(), authenticateRequest.getChannel(),
-                        authenticateRequest.getClient(), authenticateRequest.getUsername()))
-                .chain(() -> super.getAccountId(authenticateRequest.getUsername()));
+                .call(() -> super.validateNotBlocked(clientID))
+                .call(() -> super.validateUsernamePassword(username, password))
+                .onFailure().call(() -> createAttempt(clientID, username, "createAccount", false))
+                .call(() -> createAttempt(clientID, username, "createAccount", true))
+                .chain(() -> accountRepository.findByUsername(username))
+                .map(account -> account.id.toString());
     }
 
-    public Uni<Void> forgotPassword(String ipAddress, String device, String username) {
+    public Uni<Void> forgotPassword(ClientID clientID, String username) {
         return Uni.createFrom().voidItem()
-                .call(item -> validateNotBlocked(ipAddress, device))
+                .call(item -> validateNotBlocked(clientID))
                 .call(() -> {
                     return validateUsernameExist(username)
-                    .call(() -> validatePasswordLink(username))
-                    .invoke(() -> Log.info("Login attempt by " + ipAddress + " :" + device))
-                    .call(() -> sendSetPasswordEmail(username))
-                    .onFailure().call(() -> {
-                        Log.error("Invalid attempt forgot password");
-                        return loginAttemptService.createLoginAttempt(ipAddress, device, "", "", username)
-                                .chain(() -> loginAttemptService.getLoginAttempts(ipAddress, device))
-                                .onItem().invoke(attempts -> {
-                                    if (attempts > 10) {
-                                        blockedAccessService.blockIP(null);
-                                    }
-                                });
-                        });
+                            .call(() -> validatePasswordLink(username))
+                            .invoke(() -> Log.info("Login attempt by " + clientID.ipAddress + " :" + clientID.device))
+                            .call(() -> sendSetPasswordEmail(username))
+                            .onFailure().call(() -> {
+                                Log.error("Invalid attempt forgot password");
+                                return attemptService.createAttempt(clientID, username, "forgotPassword", false)
+                                        .chain(() -> attemptService.getAttempts(clientID))
+                                        .onItem().invoke(attempts -> {
+                                            if (attempts > 10) {
+                                                blockedAccessService.block(clientID, "forgotPassword");
+                                            }
+                                        });
+                            });
                 })
                 .onItemOrFailure().transformToUni((item, failure) -> Uni.createFrom().voidItem());
     }
 
-    public Uni<String> createAccount(String ipAddress, String device, String username, String password) {
+    public Uni<String> createAccount(ClientID clientID, String username, String password) {
         return Uni.createFrom().voidItem()
-                .call(item -> validateNotBlocked(ipAddress, device))
+                .call(item -> validateNotBlocked(clientID))
                 .chain(() -> {
                     return Uni.createFrom().voidItem()
                             .call(item -> validateUsernameFormat(username))
                             .call(item -> validatePasswordStrength(password))
                             .call(item -> validateUsernameNotTaken(username))
                             .onItem().transformToUni(item -> {
-                                Account account = Account.builder().username(username).password(password).build();
+                                Account account = new Account();
+                                account.username = username;
+                                account.password = password;
                                 return accountRepository.persist(account).onItem().transform(entity -> entity.id.toString());
                             });
                 });
     }
 
-    public Uni<String> createAccount(String ipAddress, String device, String username) {
+    public Uni<String> createAccount(ClientID clientID, String username) {
         String password = UUID.randomUUID().toString();
-        return createAccount(ipAddress, device, username, password)
+        return createAccount(clientID, username, password)
                 .onItem().call(item -> sendSetPasswordEmail(username));
     }
 
-    public Uni<Void> changePassword(String username, String oldPassword, String newPassword) {
-        return validateUsernamePassword(username, oldPassword)
+    public Uni<Void> changePassword(ClientID clientID, String username, String currentPassword, String newPassword) {
+        return validateUsernamePassword(username, currentPassword)
                 .call(() -> passwordService.validatePasswordStrength(newPassword))
                 .call(() -> accountRepository.setPassword(username, newPassword))
                 .chain(() -> Uni.createFrom().voidItem());
     }
 
     @Override
-    public Uni<Void> setPassword(String token, String password) {
+    public Uni<Void> setPassword(ClientID clientID, String token, String password) {
         return passwordService.isSetPasswordTokenValid(token)
                 .chain(() -> passwordTokenRepository.getUsernameByToken(token))
                 .chain(username -> accountRepository.setPassword(username, password))
@@ -87,10 +88,9 @@ public class AccountService extends AccountServiceBase {
 
     }
 
-    public Uni<Void> deleteAccount(String username, String password) {
+    public Uni<Void> deleteAccount(ClientID clientID, String username, String password) {
         return validateUsernamePassword(username, password)
                 .call(() -> accountRepository.deleteByUsername(username))
                 .chain(() -> Uni.createFrom().voidItem());
     }
-
 }
