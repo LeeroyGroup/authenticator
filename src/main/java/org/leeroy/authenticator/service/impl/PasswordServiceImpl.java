@@ -1,5 +1,7 @@
 package org.leeroy.authenticator.service.impl;
 
+import de.mkammerer.argon2.Argon2;
+import de.mkammerer.argon2.Argon2Factory;
 import io.smallrye.mutiny.Uni;
 import org.leeroy.authenticator.model.PasswordToken;
 import org.leeroy.authenticator.repository.PasswordTokenRepository;
@@ -20,7 +22,16 @@ public class PasswordServiceImpl implements PasswordService {
 
     @Override
     public Uni<String> hashPassword(String password) {
-        return null;
+        String hash = null;
+        Argon2 argon2 = Argon2Factory.create(Argon2Factory.Argon2Types.ARGON2id, 32, 64);
+
+        try {
+            hash = argon2.hash(22, 65536, 1, password.toCharArray());
+
+        } finally {
+            argon2.wipeArray(password.toCharArray());
+        }
+        return Uni.createFrom().item(hash);
     }
 
     private static Pattern containsUpperCaseLetter = Pattern.compile("[A-Z]+");
@@ -32,15 +43,14 @@ public class PasswordServiceImpl implements PasswordService {
     public Uni<Boolean> validatePasswordStrength(String password) {
         if (password.length() < 8) {
             return Uni.createFrom().item(false);
-        }
-        else if (password.length() > 12) {
+        } else if (password.length() > 12) {
             return Uni.createFrom().item(true);
         }
 
-        if (!containsUpperCaseLetter.matcher(password).find()){
+        if (!containsUpperCaseLetter.matcher(password).find()) {
             return Uni.createFrom().item(false);
         }
-        if (!containsLowerCaseLetter.matcher(password).find()){
+        if (!containsLowerCaseLetter.matcher(password).find()) {
             return Uni.createFrom().item(false);
         }
 
@@ -56,7 +66,7 @@ public class PasswordServiceImpl implements PasswordService {
         passwordToken.timestamp = Instant.now();
 
         return passwordTokenRepository.persist(passwordToken)
-                .map(item ->  token);
+                .map(item -> token);
     }
 
     @Override
