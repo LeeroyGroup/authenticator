@@ -12,8 +12,12 @@ public class AccountRepository implements ReactivePanacheMongoRepository<Account
         return find("username", username).firstResult();
     }
 
+    public Uni<Account> findByUsernameAndPassword(String username, String password) {
+        return find("username = ?1 and password = ?2 ", username, password).firstResult();
+    }
+
     public Uni<Boolean> deleteByUsername(String username) {
-        return delete("username", username).map(count -> count != 0) ;
+        return delete("username", username).map(count -> count != 0);
     }
 
     public Uni<Boolean> hasUser(String username) {

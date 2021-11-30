@@ -118,14 +118,20 @@ public abstract class AccountServiceBase {
 
     protected Uni<Void> validatePasswordStrength(String password) {
         return passwordService.validatePasswordStrength(password).invoke(isValidPassword -> {
-                if (!isValidPassword) {
-                    throw new BadRequestException(INVALID_PASSWORD_STRENGTH);
-                }
+            if (!isValidPassword) {
+                throw new BadRequestException(INVALID_PASSWORD_STRENGTH);
+            }
         }).chain(() -> Uni.createFrom().voidItem());
     }
 
-    private boolean isUsernameAndPasswordValid(String username, String password) {
-        return true;
+    private Uni<Boolean> isUsernameAndPasswordExist(String username, String password) {
+        return passwordService.hashPassword(password)
+                .chain(hashPassword -> {
+                    return accountRepository.findByUsernameAndPassword(username, hashPassword)
+                            .onItem()
+                            .ifNotNull()
+                            .transform(account -> account.id != null);
+                });
     }
 
     private boolean isUsernameValid(String username) {
