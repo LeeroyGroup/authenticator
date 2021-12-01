@@ -8,6 +8,7 @@ import org.leeroy.authenticator.resource.ClientID;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
+import javax.ws.rs.BadRequestException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 
@@ -16,6 +17,8 @@ public class BlockedAccessService {
 
     @Inject
     BlockedAccessRepository blockedAccessRepository;
+
+    private static final String BLOCKED_EXCEPTION_MESSAGE = "You have to wait a while before you try again";
 
     public Uni<Boolean> isBlocked(ClientID clientID) {
         Log.info("isBlocked");
@@ -36,5 +39,14 @@ public class BlockedAccessService {
         blockedAccess.timestamp = Instant.now();
         blockedAccessRepository.persist(blockedAccess);
         return Uni.createFrom().voidItem();
+    }
+
+    protected Uni<Void> validateNotBlocked(ClientID clientID) {
+        return isBlocked(clientID).onItem().invoke(isBlocked -> {
+            if (isBlocked) {
+                Log.error(BLOCKED_EXCEPTION_MESSAGE);
+                throw new BadRequestException(BLOCKED_EXCEPTION_MESSAGE);
+            }
+        }).chain(() -> Uni.createFrom().voidItem());
     }
 }

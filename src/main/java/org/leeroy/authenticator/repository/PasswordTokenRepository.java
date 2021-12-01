@@ -15,4 +15,8 @@ public class PasswordTokenRepository implements ReactivePanacheMongoRepository<P
     public Uni<String> getUsernameByToken(String token) {
         return getByToken(token).map(passwordToken -> passwordToken.token);
     }
+
+    public Uni<PasswordToken> getByUsername(String username) {
+        return find("username", username).firstResult();
+    }
 }

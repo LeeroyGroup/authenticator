@@ -3,7 +3,7 @@ package org.leeroy.authenticator.resource;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.http.HttpServerRequest;
 import org.leeroy.authenticator.resource.request.*;
-import org.leeroy.authenticator.service.AccountService;
+import org.leeroy.authenticator.service.AuthenticatorService;
 
 import javax.inject.Inject;
 import javax.ws.rs.POST;
@@ -14,26 +14,26 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 
 @Path("/api/v1")
-public class AccountResource {
+public class AuthenticatorResource {
 
     @Inject
-    AccountService accountService;
+    AuthenticatorService authenticatorService;
 
     @Context
     private HttpServerRequest serverRequest;
 
     @POST
-    @Path("account-authenticate")
+    @Path("authenticate-account")
     @Produces(MediaType.TEXT_PLAIN)
-    public Uni<String> authenticate(AuthenticateRequest authenticateRequest) {
-        return accountService.authenticate(getClientID(), authenticateRequest.username, authenticateRequest.password);
+    public Uni<String> authenticateAccount(AuthenticateRequest authenticateRequest) {
+        return authenticatorService.authenticateAccount(getClientID(), authenticateRequest.username, authenticateRequest.password);
     }
 
     @PUT
     @Path("forgot-password")
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> forgotPassword(ForgotPasswordRequest request) {
-        return accountService.forgotPassword(getClientID(), request.username).onItem().transform(item -> "We sent you a email which you can use to set your password");
+        return authenticatorService.forgotPassword(getClientID(), request.username).onItem().transform(item -> "We sent you a email which you can use to set your password");
     }
 
     @POST
@@ -41,9 +41,9 @@ public class AccountResource {
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> createAccount(CreateAccountRequest request) {
         if (request.password != null) {
-            return accountService.createAccount(getClientID(), request.username, request.password);
+            return authenticatorService.createAccount(getClientID(), request.username, request.password);
         } else {
-            return accountService.createAccount(getClientID(), request.username);
+            return authenticatorService.createAccount(getClientID(), request.username);
         }
     }
 
@@ -51,21 +51,21 @@ public class AccountResource {
     @Path("set-password")
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> setPassword(SetPasswordRequest request) {
-        return accountService.setPassword(getClientID(), request.token, request.newPassword).onItem().transform(item -> "Password changed");
+        return authenticatorService.setPassword(getClientID(), request.token, request.newPassword).onItem().transform(item -> "Password changed");
     }
 
     @PUT
     @Path("change-password")
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> changePassword(ChangePasswordRequest changePasswordRequest) {
-        return accountService.changePassword(getClientID(), changePasswordRequest.username, changePasswordRequest.currentPassword, changePasswordRequest.newPassword).onItem().transform(item -> "Password changed");
+        return authenticatorService.changePassword(getClientID(), changePasswordRequest.username, changePasswordRequest.currentPassword, changePasswordRequest.newPassword).onItem().transform(item -> "Password changed");
     }
 
     @POST
     @Path("/delete-account")
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> deleteAccount(DeleteAccountRequest request) {
-        return accountService.deleteAccount(getClientID(), request.username, request.password).onItem().transform(item -> "Account deleted");
+        return authenticatorService.deleteAccount(getClientID(), request.username, request.password).onItem().transform(item -> "Account deleted");
     }
 
     private ClientID getClientID() {

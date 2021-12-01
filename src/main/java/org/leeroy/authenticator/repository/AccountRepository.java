@@ -13,7 +13,7 @@ public class AccountRepository implements ReactivePanacheMongoRepository<Account
     }
 
     public Uni<Account> findByUsernameAndPassword(String username, String password) {
-        return find("username = ?1 and password = ?2 ", username, password).firstResult();
+        return find("username = ?1 and password = ?2", username, password).firstResult();
     }
 
     public Uni<Boolean> deleteByUsername(String username) {

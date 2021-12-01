@@ -20,12 +20,16 @@ public class PasswordService {
     @Inject
     PasswordTokenRepository passwordTokenRepository;
 
-    private static Pattern containsUpperCaseLetter = Pattern.compile("[A-Z]+");
-    private static Pattern containsLowerCaseLetter = Pattern.compile("[a-z]+");
-    private static Pattern containsDigit = Pattern.compile("[0-9]+");
-    private static Pattern containsSpecialCharacter = Pattern.compile("[.#?!@$%^&*_-]+");
+    private static final String INVALID_PASSWORD_STRENGTH = "Invalid password strength";
 
-    private Argon2 argon2 = Argon2Factory.create(Argon2Factory.Argon2Types.ARGON2id, 32, 64);
+    private final static Pattern containsUpperCaseLetter = Pattern.compile("[A-Z]+");
+    private final static Pattern containsLowerCaseLetter = Pattern.compile("[a-z]+");
+    private final static Pattern containsDigit = Pattern.compile("[0-9]+");
+    private final static Pattern containsSpecialCharacter = Pattern.compile("[.#?!@$%^&*_-]+");
+
+    private final static int EXPIRED_AFTER_MINUTES = 10;
+
+    private final static Argon2 argon2 = Argon2Factory.create(Argon2Factory.Argon2Types.ARGON2id, 32, 64);
 
     public Uni<String> hashPassword(String password) {
         String hash = argon2.hash(22, 65536, 1, password.toCharArray());
@@ -33,21 +37,29 @@ public class PasswordService {
         return Uni.createFrom().item(hash);
     }
 
-    public Uni<Boolean> validatePasswordStrength(String password) {
+    public Uni<Boolean> verifyPassword(String hash, String password) {
+        return Uni.createFrom().item(argon2.verify(hash, password));
+    }
+
+    protected Uni<Void> validatePasswordStrength(String password) {
         if (password.length() < 8) {
-            return Uni.createFrom().item(false);
+            throw new BadRequestException(INVALID_PASSWORD_STRENGTH);
         } else if (password.length() > 12) {
-            return Uni.createFrom().item(true);
+            return Uni.createFrom().voidItem();
         }
 
         if (!containsUpperCaseLetter.matcher(password).find()) {
-            return Uni.createFrom().item(false);
+            throw new BadRequestException(INVALID_PASSWORD_STRENGTH);
         }
         if (!containsLowerCaseLetter.matcher(password).find()) {
-            return Uni.createFrom().item(false);
+            throw new BadRequestException(INVALID_PASSWORD_STRENGTH);
         }
 
-        return Uni.createFrom().item(containsDigit.matcher(password).find() || containsSpecialCharacter.matcher(password).find());
+        if (!containsDigit.matcher(password).find() && !containsSpecialCharacter.matcher(password).find()) {
+            throw new BadRequestException(INVALID_PASSWORD_STRENGTH);
+        }
+
+        return Uni.createFrom().voidItem();
     }
 
     public Uni<String> createSetPasswordToken(String username) {
@@ -61,10 +73,20 @@ public class PasswordService {
                 .map(item -> token);
     }
 
-    public Uni<Void> isSetPasswordTokenValid(String token) {
+    public Uni<Void> validateSetPasswordToken(String token) {
         return passwordTokenRepository.getByToken(token).call(passwordToken -> {
             Long minutesPassed = Duration.between(passwordToken.timestamp, Instant.now()).toMinutes();
-            if (minutesPassed > 10) {
+            if (minutesPassed > EXPIRED_AFTER_MINUTES) {
+                throw new BadRequestException();
+            }
+            return Uni.createFrom().voidItem();
+        }).chain(() -> Uni.createFrom().voidItem());
+    }
+
+    public Uni<Void> validateSetPasswordTokenNotCreated(String username) {
+        return passwordTokenRepository.getByUsername(username).call(passwordToken -> {
+            Long minutesPassed = Duration.between(passwordToken.timestamp, Instant.now()).toMinutes();
+            if (minutesPassed <= EXPIRED_AFTER_MINUTES) {
                 throw new BadRequestException();
             }
             return Uni.createFrom().voidItem();
