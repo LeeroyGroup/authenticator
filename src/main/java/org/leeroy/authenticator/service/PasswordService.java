@@ -9,7 +9,6 @@ import org.leeroy.authenticator.repository.PasswordTokenRepository;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -74,25 +73,18 @@ public class PasswordService {
     }
 
     public Uni<Void> validateSetPasswordToken(String token) {
-        return passwordTokenRepository.getByToken(token).call(passwordToken -> {
-            Long minutesPassed = Duration.between(passwordToken.timestamp, Instant.now()).toMinutes();
-            if (minutesPassed > EXPIRED_AFTER_MINUTES) {
-                throw new BadRequestException();
-            }
-            return Uni.createFrom().voidItem();
-        }).replaceWithVoid();
+        return passwordTokenRepository.findValidByToken(token, EXPIRED_AFTER_MINUTES)
+                .onItem().ifNull().failWith(() -> {
+                    throw new BadRequestException();
+                })
+                .replaceWithVoid();
     }
 
     public Uni<Void> validateSetPasswordTokenNotCreated(String username) {
-        return passwordTokenRepository.getByUsername(username)
-                .call(passwordToken -> {
-                    if (passwordToken != null) {
-                        Long minutesPassed = Duration.between(passwordToken.timestamp, Instant.now()).toMinutes();
-                        if (minutesPassed <= EXPIRED_AFTER_MINUTES) {
-                            throw new BadRequestException();
-                        }
-                    }
-                    return Uni.createFrom().voidItem();
-                }).replaceWithVoid();
+        return passwordTokenRepository.findValidByUsername(username, EXPIRED_AFTER_MINUTES)
+                .onItem().ifNotNull().failWith(() -> {
+                    throw new BadRequestException();
+                })
+                .replaceWithVoid();
     }
 }
