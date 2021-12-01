@@ -3,7 +3,7 @@ package org.leeroy.authenticator.resource;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.http.HttpServerRequest;
 import org.leeroy.authenticator.resource.request.*;
-import org.leeroy.authenticator.service.AccountServiceBase;
+import org.leeroy.authenticator.service.AccountService;
 
 import javax.inject.Inject;
 import javax.ws.rs.POST;
@@ -17,7 +17,7 @@ import javax.ws.rs.core.MediaType;
 public class AccountResource {
 
     @Inject
-    AccountServiceBase accountService;
+    AccountService accountService;
 
     @Context
     private HttpServerRequest serverRequest;
