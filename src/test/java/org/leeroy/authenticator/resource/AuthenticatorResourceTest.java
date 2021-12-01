@@ -109,7 +109,6 @@ public class AuthenticatorResourceTest {
                 .when().put("forgot-password")
                 .then()
                 .statusCode(200);
-
     }
 
     @Test
