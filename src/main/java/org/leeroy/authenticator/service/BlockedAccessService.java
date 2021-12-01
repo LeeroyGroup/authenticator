@@ -21,12 +21,6 @@ public class BlockedAccessService {
 
     private final static int EXPIRED_AFTER_MINUTES = 10;
 
-    public Uni<Boolean> isBlocked(ClientID clientID) {
-        Log.info("isBlocked");
-
-        return blockedAccessRepository.findValid(clientID, EXPIRED_AFTER_MINUTES).map(blockedAccess -> blockedAccess != null);
-    }
-
     public Uni<Void> block(ClientID clientID, String reason) {
         BlockedAccess blockedAccess = new BlockedAccess();
         blockedAccess.ipAddress = clientID.ipAddress;
@@ -38,11 +32,15 @@ public class BlockedAccessService {
     }
 
     public Uni<Void> validateNotBlocked(ClientID clientID) {
-        return isBlocked(clientID).onItem().invoke(isBlocked -> {
+        return isBlocked(clientID).invoke(isBlocked -> {
             if (isBlocked) {
                 Log.error(BLOCKED_EXCEPTION_MESSAGE);
                 throw new BadRequestException(BLOCKED_EXCEPTION_MESSAGE);
             }
         }).replaceWithVoid();
+    }
+
+    private Uni<Boolean> isBlocked(ClientID clientID) {
+        return blockedAccessRepository.findValid(clientID, EXPIRED_AFTER_MINUTES).map(blockedAccess -> blockedAccess != null);
     }
 }
