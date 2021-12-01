@@ -9,6 +9,7 @@ import org.leeroy.authenticator.resource.ClientID;
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 
 @ApplicationScoped
 public class AttemptService {
@@ -18,8 +19,9 @@ public class AttemptService {
 
     private static final Logger LOG = Logger.getLogger(AttemptService.class);
 
-    public Uni<Long> getAttempts(ClientID clientID) {
-        return attemptRepository.find("ipAddress = ?1 and device = ?2", clientID.ipAddress, clientID.device).count();
+    public Uni<Long> getAttempts(ClientID clientID, int minutesSpan) {
+        return attemptRepository.find("ipAddress = ?1 and device = ?2 and timestamp >= ?3", clientID.ipAddress, clientID.device, Instant.now().minus(minutesSpan, ChronoUnit.MINUTES))
+                .count();
     }
 
     public Uni<Void> createAttempt(ClientID clientID, String username, String attemptType, boolean valid) {
@@ -32,8 +34,6 @@ public class AttemptService {
         attempt.timestamp = Instant.now();
 
         LOG.log(Logger.Level.INFO, attempt);
-        attemptRepository.persist(attempt);
-
-        return Uni.createFrom().voidItem();
+        return attemptRepository.persist(attempt).replaceWithVoid();
     }
 }

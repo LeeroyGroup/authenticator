@@ -22,7 +22,6 @@ public class AuthenticatorResource {
     @Inject
     BlockedAccessService blockedAccessService;
 
-
     @Context
     private HttpServerRequest serverRequest;
 
@@ -82,6 +81,7 @@ public class AuthenticatorResource {
     private ClientID getClientID() {
         ClientID clientID = new ClientID();
         clientID.ipAddress = serverRequest.remoteAddress().hostAddress();
+        clientID.device = "";
         return clientID;
     }
 }

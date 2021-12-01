@@ -47,11 +47,13 @@ public class AuthenticatorService {
                 .onFailure().call(() -> {
                     Log.error("Invalid attempt forgot password");
                     return attemptService.createAttempt(clientID, username, "forgotPassword", false)
-                            .chain(() -> attemptService.getAttempts(clientID))
-                            .onItem().invoke(attempts -> {
+                            .chain(() -> attemptService.getAttempts(clientID, 15))
+                            .onItem().call(attempts -> {
                                 if (attempts > 10) {
-                                    blockedAccessService.block(clientID, "forgotPassword");
+                                    return blockedAccessService.block(clientID, "forgotPassword");
                                 }
+
+                                return Uni.createFrom().voidItem();
                             });
                 });
     }
@@ -60,14 +62,14 @@ public class AuthenticatorService {
         return accountService.validateCredentials(username, currentPassword)
                 .call(() -> passwordService.validatePasswordStrength(newPassword))
                 .call(() -> accountRepository.setPassword(username, newPassword))
-                .chain(() -> Uni.createFrom().voidItem());
+                .replaceWithVoid();
     }
 
     public Uni<Void> setPassword(ClientID clientID, String token, String password) {
         return passwordService.validateSetPasswordToken(token)
                 .chain(() -> passwordTokenRepository.getUsernameByToken(token))
                 .chain(username -> accountRepository.setPassword(username, password))
-                .chain(() -> Uni.createFrom().voidItem());
+                .replaceWithVoid();
 
     }
 
@@ -94,7 +96,7 @@ public class AuthenticatorService {
     public Uni<Void> deleteAccount(ClientID clientID, String username, String password) {
         return accountService.validateCredentials(username, password)
                 .call(() -> accountRepository.deleteByUsername(username))
-                .chain(() -> Uni.createFrom().voidItem());
+                .replaceWithVoid();
     }
 
     public Uni<Void> createAttempt(ClientID clientID, String username, String attemptType, boolean valid) {
@@ -103,13 +105,13 @@ public class AuthenticatorService {
         }
 
         return attemptService.createAttempt(clientID, username, attemptType, valid)
-                .chain(() -> attemptService.getAttempts(clientID))
+                .chain(() -> attemptService.getAttempts(clientID, 15))
                 .map(count -> count > 15)
                 .invoke(isBlockedLoginAttempt -> {
                     if (isBlockedLoginAttempt) {
                         blockedAccessService.block(clientID, attemptType);
                     }
-                }).chain(() -> Uni.createFrom().voidItem());
+                }).replaceWithVoid();
     }
 
     protected Uni<Void> sendSetPasswordEmail(String username) {

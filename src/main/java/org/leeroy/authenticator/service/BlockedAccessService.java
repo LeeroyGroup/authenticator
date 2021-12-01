@@ -10,7 +10,7 @@ import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.ws.rs.BadRequestException;
 import java.time.Instant;
-import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 
 @ApplicationScoped
 public class BlockedAccessService {
@@ -20,15 +20,14 @@ public class BlockedAccessService {
 
     private static final String BLOCKED_EXCEPTION_MESSAGE = "You have to wait a while before you try again";
 
+    private final static int EXPIRED_AFTER_MINUTES = 10;
+
     public Uni<Boolean> isBlocked(ClientID clientID) {
         Log.info("isBlocked");
 
-        return blockedAccessRepository.find("ipAddress = ?1 and device = ?2 and timestamp >= ?3",
-                        clientID.ipAddress,
-                        clientID.device,
-                        LocalDateTime.now().minusMinutes(15))
-                .count()
-                .map(i -> i > 0);
+        return blockedAccessRepository.find("ipAddress = ?1 and device = ?2 and timestamp > ?3", clientID.ipAddress, clientID.device, Instant.now().minus(EXPIRED_AFTER_MINUTES, ChronoUnit.MINUTES))
+                .firstResult()
+                .map(blockedAccess -> blockedAccess != null);
     }
 
     public Uni<Void> block(ClientID clientID, String reason) {
@@ -37,8 +36,8 @@ public class BlockedAccessService {
         blockedAccess.device = clientID.device;
         blockedAccess.reason = reason;
         blockedAccess.timestamp = Instant.now();
-        blockedAccessRepository.persist(blockedAccess);
-        return Uni.createFrom().voidItem();
+
+        return blockedAccessRepository.persist(blockedAccess).replaceWithVoid();
     }
 
     public Uni<Void> validateNotBlocked(ClientID clientID) {
@@ -47,6 +46,6 @@ public class BlockedAccessService {
                 Log.error(BLOCKED_EXCEPTION_MESSAGE);
                 throw new BadRequestException(BLOCKED_EXCEPTION_MESSAGE);
             }
-        }).chain(() -> Uni.createFrom().voidItem());
+        }).replaceWithVoid();
     }
 }

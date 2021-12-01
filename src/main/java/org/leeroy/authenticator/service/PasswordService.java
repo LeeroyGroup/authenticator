@@ -80,7 +80,7 @@ public class PasswordService {
                 throw new BadRequestException();
             }
             return Uni.createFrom().voidItem();
-        }).chain(() -> Uni.createFrom().voidItem());
+        }).replaceWithVoid();
     }
 
     public Uni<Void> validateSetPasswordTokenNotCreated(String username) {
@@ -93,6 +93,6 @@ public class PasswordService {
                         }
                     }
                     return Uni.createFrom().voidItem();
-                }).chain(() -> Uni.createFrom().voidItem());
+                }).replaceWithVoid();
     }
 }

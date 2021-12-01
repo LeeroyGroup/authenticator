@@ -26,6 +26,6 @@ public class AccountRepository implements ReactivePanacheMongoRepository<Account
 
     public Uni<Void> setPassword(String username, String newPassword) {
         return update("password", newPassword).where("username", username)
-                .chain(() -> Uni.createFrom().voidItem());
+                .replaceWithVoid();
     }
 }
