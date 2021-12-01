@@ -41,7 +41,7 @@ public class BlockedAccessService {
         return Uni.createFrom().voidItem();
     }
 
-    protected Uni<Void> validateNotBlocked(ClientID clientID) {
+    public Uni<Void> validateNotBlocked(ClientID clientID) {
         return isBlocked(clientID).onItem().invoke(isBlocked -> {
             if (isBlocked) {
                 Log.error(BLOCKED_EXCEPTION_MESSAGE);

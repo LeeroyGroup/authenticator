@@ -34,33 +34,26 @@ public class AuthenticatorService {
     private final static String CREATE_ACCOUNT_ATTEMPT = "createAccount";
 
     public Uni<String> authenticateAccount(ClientID clientID, String username, String password) {
-        return Uni.createFrom().voidItem()
-                .call(() -> blockedAccessService.validateNotBlocked(clientID))
-                .chain(() -> accountService.validateCredentials(username, password))
+        return accountService.validateCredentials(username, password)
                 .call(() -> createAttempt(clientID, username, CREATE_ACCOUNT_ATTEMPT, true))
                 .onFailure().call(() -> createAttempt(clientID, username, CREATE_ACCOUNT_ATTEMPT, false));
     }
 
     public Uni<Void> forgotPassword(ClientID clientID, String username) {
-        return Uni.createFrom().voidItem()
-                .call(item -> blockedAccessService.validateNotBlocked(clientID))
-                .call(() -> {
-                    return accountService.validateUsernameExist(username)
-                            .call(() -> passwordService.validateSetPasswordTokenNotCreated(username))
-                            .invoke(() -> Log.info("Login attempt by " + clientID.ipAddress + " :" + clientID.device))
-                            .call(() -> sendSetPasswordEmail(username))
-                            .onFailure().call(() -> {
-                                Log.error("Invalid attempt forgot password");
-                                return attemptService.createAttempt(clientID, username, "forgotPassword", false)
-                                        .chain(() -> attemptService.getAttempts(clientID))
-                                        .onItem().invoke(attempts -> {
-                                            if (attempts > 10) {
-                                                blockedAccessService.block(clientID, "forgotPassword");
-                                            }
-                                        });
+        return accountService.validateUsernameExist(username)
+                .call(() -> passwordService.validateSetPasswordTokenNotCreated(username))
+                .invoke(() -> Log.info("Login attempt by " + clientID.ipAddress + " :" + clientID.device))
+                .call(() -> sendSetPasswordEmail(username))
+                .onFailure().call(() -> {
+                    Log.error("Invalid attempt forgot password");
+                    return attemptService.createAttempt(clientID, username, "forgotPassword", false)
+                            .chain(() -> attemptService.getAttempts(clientID))
+                            .onItem().invoke(attempts -> {
+                                if (attempts > 10) {
+                                    blockedAccessService.block(clientID, "forgotPassword");
+                                }
                             });
-                })
-                .onItemOrFailure().transformToUni((item, failure) -> Uni.createFrom().voidItem());
+                });
     }
 
     public Uni<Void> changePassword(ClientID clientID, String username, String currentPassword, String newPassword) {
@@ -80,19 +73,15 @@ public class AuthenticatorService {
 
     public Uni<String> createAccount(ClientID clientID, String username, String password) {
         return Uni.createFrom().voidItem()
-                .call(item -> blockedAccessService.validateNotBlocked(clientID))
-                .chain(() -> {
-                    return Uni.createFrom().voidItem()
-                            .call(item -> emailService.validateEmailFormat(username))
-                            .call(item -> passwordService.validatePasswordStrength(password))
-                            .call(item -> accountService.validateUsernameNotExist(username))
-                            .chain(() -> passwordService.hashPassword(password))
-                            .chain(hashedPassword -> {
-                                Account account = new Account();
-                                account.username = username;
-                                account.password = hashedPassword;
-                                return accountRepository.persist(account).onItem().transform(entity -> entity.id.toString());
-                            });
+                .call(item -> emailService.validateEmailFormat(username))
+                .call(item -> passwordService.validatePasswordStrength(password))
+                .call(item -> accountService.validateUsernameNotExist(username))
+                .chain(() -> passwordService.hashPassword(password))
+                .chain(hashedPassword -> {
+                    Account account = new Account();
+                    account.username = username;
+                    account.password = hashedPassword;
+                    return accountRepository.persist(account).onItem().transform(entity -> entity.id.toString());
                 });
     }
 

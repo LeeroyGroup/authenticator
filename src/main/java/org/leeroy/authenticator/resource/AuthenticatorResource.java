@@ -4,6 +4,7 @@ import io.smallrye.mutiny.Uni;
 import io.vertx.core.http.HttpServerRequest;
 import org.leeroy.authenticator.resource.request.*;
 import org.leeroy.authenticator.service.AuthenticatorService;
+import org.leeroy.authenticator.service.BlockedAccessService;
 
 import javax.inject.Inject;
 import javax.ws.rs.POST;
@@ -18,6 +19,9 @@ public class AuthenticatorResource {
 
     @Inject
     AuthenticatorService authenticatorService;
+    @Inject
+    BlockedAccessService blockedAccessService;
+
 
     @Context
     private HttpServerRequest serverRequest;
@@ -26,14 +30,17 @@ public class AuthenticatorResource {
     @Path("authenticate-account")
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> authenticateAccount(AuthenticateRequest authenticateRequest) {
-        return authenticatorService.authenticateAccount(getClientID(), authenticateRequest.username, authenticateRequest.password);
+        return blockedAccessService.validateNotBlocked(getClientID())
+                .chain(() -> authenticatorService.authenticateAccount(getClientID(), authenticateRequest.username, authenticateRequest.password));
     }
 
     @PUT
     @Path("forgot-password")
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> forgotPassword(ForgotPasswordRequest request) {
-        return authenticatorService.forgotPassword(getClientID(), request.username).onItem().transform(item -> "We sent you a email which you can use to set your password");
+        return blockedAccessService.validateNotBlocked(getClientID())
+                .chain(() -> authenticatorService.forgotPassword(getClientID(), request.username))
+                .onItem().transform(item -> "We sent you a email which you can use to set your password");
     }
 
     @POST
@@ -41,9 +48,11 @@ public class AuthenticatorResource {
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> createAccount(CreateAccountRequest request) {
         if (request.password != null) {
-            return authenticatorService.createAccount(getClientID(), request.username, request.password);
+            return blockedAccessService.validateNotBlocked(getClientID())
+                    .chain(() -> authenticatorService.createAccount(getClientID(), request.username, request.password));
         } else {
-            return authenticatorService.createAccount(getClientID(), request.username);
+            return blockedAccessService.validateNotBlocked(getClientID())
+                    .chain(() -> authenticatorService.createAccount(getClientID(), request.username));
         }
     }
 
@@ -51,7 +60,9 @@ public class AuthenticatorResource {
     @Path("set-password")
     @Produces(MediaType.TEXT_PLAIN)
     public Uni<String> setPassword(SetPasswordRequest request) {
-        return authenticatorService.setPassword(getClientID(), request.token, request.newPassword).onItem().transform(item -> "Password changed");
+        return blockedAccessService.validateNotBlocked(getClientID())
+                .chain(() -> authenticatorService.setPassword(getClientID(), request.token, request.newPassword))
+                .onItem().transform(item -> "Password changed");
     }
 
     @PUT

@@ -84,12 +84,15 @@ public class PasswordService {
     }
 
     public Uni<Void> validateSetPasswordTokenNotCreated(String username) {
-        return passwordTokenRepository.getByUsername(username).call(passwordToken -> {
-            Long minutesPassed = Duration.between(passwordToken.timestamp, Instant.now()).toMinutes();
-            if (minutesPassed <= EXPIRED_AFTER_MINUTES) {
-                throw new BadRequestException();
-            }
-            return Uni.createFrom().voidItem();
-        }).chain(() -> Uni.createFrom().voidItem());
+        return passwordTokenRepository.getByUsername(username)
+                .call(passwordToken -> {
+                    if (passwordToken != null) {
+                        Long minutesPassed = Duration.between(passwordToken.timestamp, Instant.now()).toMinutes();
+                        if (minutesPassed <= EXPIRED_AFTER_MINUTES) {
+                            throw new BadRequestException();
+                        }
+                    }
+                    return Uni.createFrom().voidItem();
+                }).chain(() -> Uni.createFrom().voidItem());
     }
 }
