@@ -11,5 +11,7 @@ public class Attempt {
     public String channel;
     public String client;
     public String username;
+    public String attemptType;
+    public boolean successful;
     public Instant timestamp;
 }

@@ -4,7 +4,7 @@ import io.quarkus.logging.Log;
 import io.smallrye.mutiny.Uni;
 import org.leeroy.authenticator.model.BlockedAccess;
 import org.leeroy.authenticator.repository.BlockedAccessRepository;
-import org.leeroy.authenticator.resource.ClientID;
+import org.leeroy.authenticator.resource.RequestID;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -21,18 +21,18 @@ public class BlockedAccessService {
 
     private final static int EXPIRED_AFTER_MINUTES = 10;
 
-    public Uni<Void> block(ClientID clientID, String reason) {
+    public Uni<Void> block(RequestID requestID, String reason) {
         BlockedAccess blockedAccess = new BlockedAccess();
-        blockedAccess.ipAddress = clientID.ipAddress;
-        blockedAccess.device = clientID.device;
+        blockedAccess.ipAddress = requestID.ipAddress;
+        blockedAccess.device = requestID.device;
         blockedAccess.reason = reason;
         blockedAccess.timestamp = Instant.now();
 
         return blockedAccessRepository.persist(blockedAccess).replaceWithVoid();
     }
 
-    public Uni<Void> validateNotBlocked(ClientID clientID) {
-        return isBlocked(clientID).invoke(isBlocked -> {
+    public Uni<Void> validateNotBlocked(RequestID requestID) {
+        return isBlocked(requestID).invoke(isBlocked -> {
             if (isBlocked) {
                 Log.error(BLOCKED_EXCEPTION_MESSAGE);
                 throw new BadRequestException(BLOCKED_EXCEPTION_MESSAGE);
@@ -40,7 +40,7 @@ public class BlockedAccessService {
         }).replaceWithVoid();
     }
 
-    private Uni<Boolean> isBlocked(ClientID clientID) {
-        return blockedAccessRepository.findValid(clientID, EXPIRED_AFTER_MINUTES).map(blockedAccess -> blockedAccess != null);
+    private Uni<Boolean> isBlocked(RequestID requestID) {
+        return blockedAccessRepository.findValid(requestID, EXPIRED_AFTER_MINUTES).map(blockedAccess -> blockedAccess != null);
     }
 }

@@ -78,10 +78,10 @@ public class AuthenticatorResource {
         return authenticatorService.deleteAccount(getClientID(), request.username, request.password).onItem().transform(item -> "Account deleted");
     }
 
-    private ClientID getClientID() {
-        ClientID clientID = new ClientID();
-        clientID.ipAddress = serverRequest.remoteAddress().hostAddress();
-        clientID.device = "";
-        return clientID;
+    private RequestID getClientID() {
+        RequestID requestID = new RequestID();
+        requestID.ipAddress = serverRequest.remoteAddress().hostAddress();
+        requestID.device = "";
+        return requestID;
     }
 }

@@ -1,10 +1,11 @@
 package org.leeroy.authenticator.service;
 
 import io.smallrye.mutiny.Uni;
+import io.vertx.core.json.Json;
 import org.jboss.logging.Logger;
 import org.leeroy.authenticator.model.Attempt;
 import org.leeroy.authenticator.repository.AttemptRepository;
-import org.leeroy.authenticator.resource.ClientID;
+import org.leeroy.authenticator.resource.RequestID;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -19,21 +20,33 @@ public class AttemptService {
 
     private static final Logger LOG = Logger.getLogger(AttemptService.class);
 
-    public Uni<Long> getAttempts(ClientID clientID, int minutesSpan) {
-        return attemptRepository.find("ipAddress = ?1 and device = ?2 and timestamp >= ?3", clientID.ipAddress, clientID.device, Instant.now().minus(minutesSpan, ChronoUnit.MINUTES))
+    public Uni<Long> getAttempts(RequestID requestID, String attemptType, boolean successful, int minutesSpan) {
+        return attemptRepository.find("ipAddress = ?1 and device = ?2 and attemptType = ?3 and successful = ?4 and timestamp >= ?5",
+                        requestID.ipAddress,
+                        requestID.device,
+                        attemptType,
+                        successful,
+                        Instant.now().minus(minutesSpan, ChronoUnit.MINUTES))
                 .count();
     }
 
-    public Uni<Void> createAttempt(ClientID clientID, String username, String attemptType, boolean valid) {
+    public Uni<Void> createAttempt(RequestID requestID, String username, String attemptType, boolean successful) {
         Attempt attempt = new Attempt();
-        attempt.ipAddress = clientID.ipAddress;
-        attempt.device = clientID.device;
-        attempt.channel = clientID.channel;
-        attempt.client = clientID.name;
+        attempt.ipAddress = requestID.ipAddress;
+        attempt.device = requestID.device;
+        attempt.channel = requestID.channel;
+        attempt.client = requestID.client;
         attempt.username = username;
+        attempt.attemptType = attemptType;
+        attempt.successful = successful;
         attempt.timestamp = Instant.now();
 
-        LOG.log(Logger.Level.INFO, attempt);
+        if (successful) {
+            LOG.info(Json.encodePrettily(attempt));
+        } else {
+            LOG.error(Json.encodePrettily(attempt));
+        }
+
         return attemptRepository.persist(attempt).replaceWithVoid();
     }
 }
