@@ -7,8 +7,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.leeroy.ResourceLoader;
 import org.leeroy.authenticator.repository.AccountRepository;
-import org.leeroy.authenticator.repository.AttemptRepository;
 import org.leeroy.authenticator.repository.BlockedAccessRepository;
+import org.leeroy.authenticator.repository.RequestLogRepository;
 
 import javax.inject.Inject;
 
@@ -21,14 +21,14 @@ public class AuthenticatorResourceTest {
     @Inject
     AccountRepository accountRepository;
     @Inject
-    AttemptRepository attemptRepository;
+    RequestLogRepository requestLogRepository;
     @Inject
     BlockedAccessRepository blockedAccessRepository;
 
     @BeforeEach
     public void clearAccounts() {
         accountRepository.deleteAll().subscribeAsCompletionStage();
-        attemptRepository.deleteAll().subscribeAsCompletionStage();
+        requestLogRepository.deleteAll().subscribeAsCompletionStage();
         blockedAccessRepository.deleteAll().subscribeAsCompletionStage();
     }
 

@@ -20,7 +20,7 @@ public class AuthenticatorService {
     @Inject
     BlockedAccessService blockedAccessService;
     @Inject
-    AttemptService attemptService;
+    RequestLogService requestLogService;
     @Inject
     PasswordService passwordService;
     @Inject
@@ -31,12 +31,12 @@ public class AuthenticatorService {
     @Inject
     private PasswordTokenRepository passwordTokenRepository;
 
-    private final static String AUTHENTICATE_ACCOUNT_ATTEMPT = "Authenticate Account";
-    private final static String CREATE_ACCOUNT_ATTEMPT = "Create Account";
-    private final static String DELETE_ACCOUNT_ATTEMPT = "Create Account";
-    private final static String CHANGE_PASSWORD_ATTEMPT = "Change Password";
-    private final static String FORGOT_PASSWORD_ATTEMPT = "Forgot Password";
-    private final static String SET_PASSWORD_ATTEMPT = "Set Password";
+    private final static String AUTHENTICATE_ACCOUNT = "Authenticate Account";
+    private final static String CREATE_ACCOUNT = "Create Account";
+    private final static String DELETE_ACCOUNT = "Create Account";
+    private final static String CHANGE_PASSWORD = "Change Password";
+    private final static String FORGOT_PASSWORD = "Forgot Password";
+    private final static String SET_PASSWORD = "Set Password";
 
     private final static int CREATE_ACCOUNT_MAX = 10;
     private final static int CREATE_ACCOUNT_TIMESPAN_DAYS = 1;
@@ -44,7 +44,7 @@ public class AuthenticatorService {
 
     public Uni<String> authenticateAccount(RequestID requestID, String username, String password) {
         return accountService.validateCredentials(username, password)
-                .onItemOrFailure().call((item, failure) -> createAttempt(requestID, username, AUTHENTICATE_ACCOUNT_ATTEMPT, item != null));
+                .onItemOrFailure().call((item, failure) -> storeRequest(requestID, username, AUTHENTICATE_ACCOUNT, item != null));
     }
 
     public Uni<Void> forgotPassword(RequestID requestID, String username) {
@@ -54,11 +54,11 @@ public class AuthenticatorService {
                 .call(() -> sendSetPasswordEmail(username))
                 .onFailure().call(() -> {
                     Log.error("Invalid attempt forgot password");
-                    return attemptService.createAttempt(requestID, username, FORGOT_PASSWORD_ATTEMPT, false)
-                            .chain(() -> attemptService.getAttempts(requestID, FORGOT_PASSWORD_ATTEMPT, false, 15))
-                            .call(attempts -> {
-                                if (attempts > 10) {
-                                    return blockedAccessService.block(requestID, FORGOT_PASSWORD_ATTEMPT);
+                    return requestLogService.storeRequest(requestID, username, FORGOT_PASSWORD, false)
+                            .chain(() -> requestLogService.getRequests(requestID, FORGOT_PASSWORD, false, 15))
+                            .call(count -> {
+                                if (count > 10) {
+                                    return blockedAccessService.block(requestID, FORGOT_PASSWORD);
                                 }
 
                                 return Uni.createFrom().voidItem();
@@ -70,7 +70,7 @@ public class AuthenticatorService {
         return accountService.validateCredentials(username, currentPassword)
                 .call(() -> passwordService.validatePasswordStrength(newPassword))
                 .call(() -> accountRepository.setPassword(username, newPassword))
-                .onItemOrFailure().call((item, failure) -> createAttempt(requestID, username, CHANGE_PASSWORD_ATTEMPT, item != null))
+                .onItemOrFailure().call((item, failure) -> storeRequest(requestID, username, CHANGE_PASSWORD, item != null))
                 .replaceWithVoid();
     }
 
@@ -78,17 +78,17 @@ public class AuthenticatorService {
         return passwordService.validateSetPasswordToken(token)
                 .chain(() -> passwordTokenRepository.getUsernameByToken(token))
                 .call(username -> accountRepository.setPassword(username, password))
-                .onItemOrFailure().call((username, failure) -> createAttempt(requestID, username, SET_PASSWORD_ATTEMPT, username != null))
+                .onItemOrFailure().call((username, failure) -> storeRequest(requestID, username, SET_PASSWORD, username != null))
                 .replaceWithVoid();
     }
 
     public Uni<String> createAccount(RequestID requestID, String username, String password) {
         // Block if RequestID has been creating to many accounts in the specified time
-        return attemptService.getAttempts(requestID, CREATE_ACCOUNT_ATTEMPT, true, CREATE_ACCOUNT_TIMESPAN_DAYS * MINUTES_IN_A_DAY)
+        return requestLogService.getRequests(requestID, CREATE_ACCOUNT, true, CREATE_ACCOUNT_TIMESPAN_DAYS * MINUTES_IN_A_DAY)
                 .map(count -> count >= CREATE_ACCOUNT_MAX)
                 .call(shouldBlock -> {
                     if (shouldBlock) {
-                        return blockedAccessService.block(requestID, CREATE_ACCOUNT_ATTEMPT)
+                        return blockedAccessService.block(requestID, CREATE_ACCOUNT)
                                 .invoke(() -> {
                                     throw new BadRequestException("Can't create more accounts, have to wait");
                                 });
@@ -105,7 +105,7 @@ public class AuthenticatorService {
                             account.password = hashedPassword;
                             return accountRepository.persist(account).onItem().transform(entity -> entity.id.toString());
                         })
-                        .onItemOrFailure().call((item, failure) -> createAttempt(requestID, username, CREATE_ACCOUNT_ATTEMPT, item != null))
+                        .onItemOrFailure().call((item, failure) -> storeRequest(requestID, username, CREATE_ACCOUNT, item != null))
                 );
     }
 
@@ -118,20 +118,20 @@ public class AuthenticatorService {
     public Uni<Void> deleteAccount(RequestID requestID, String username, String password) {
         return accountService.validateCredentials(username, password)
                 .call(() -> accountRepository.deleteByUsername(username))
-                .onItemOrFailure().call((item, failure) -> createAttempt(requestID, username, DELETE_ACCOUNT_ATTEMPT, item != null))
+                .onItemOrFailure().call((item, failure) -> storeRequest(requestID, username, DELETE_ACCOUNT, item != null))
                 .replaceWithVoid();
     }
 
-    public Uni<Void> createAttempt(RequestID requestID, String username, String attemptType, boolean successful) {
+    public Uni<Void> storeRequest(RequestID requestID, String username, String attemptType, boolean successful) {
         if (successful) {
-            return attemptService.createAttempt(requestID, username, attemptType, successful);
+            return requestLogService.storeRequest(requestID, username, attemptType, successful);
         }
 
-        return attemptService.createAttempt(requestID, username, attemptType, successful)
-                .chain(() -> attemptService.getAttempts(requestID, attemptType, successful, 15))
+        return requestLogService.storeRequest(requestID, username, attemptType, successful)
+                .chain(() -> requestLogService.getRequests(requestID, attemptType, successful, 15))
                 .map(count -> count > 15)
-                .invoke(isBlockedLoginAttempt -> {
-                    if (isBlockedLoginAttempt) {
+                .invoke(shouldBlock -> {
+                    if (shouldBlock) {
                         blockedAccessService.block(requestID, attemptType);
                     }
                 }).replaceWithVoid();

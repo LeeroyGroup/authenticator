@@ -4,7 +4,7 @@ import org.bson.types.ObjectId;
 
 import java.time.Instant;
 
-public class Attempt {
+public class RequestLog {
     public ObjectId id;
     public String ipAddress;
     public String device;
