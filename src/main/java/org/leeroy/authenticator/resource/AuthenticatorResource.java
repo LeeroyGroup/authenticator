@@ -23,7 +23,7 @@ public class AuthenticatorResource {
     BlockedAccessService blockedAccessService;
 
     @Context
-    private HttpServerRequest serverRequest;
+    HttpServerRequest serverRequest;
 
     @POST
     @Path("authenticate-account")

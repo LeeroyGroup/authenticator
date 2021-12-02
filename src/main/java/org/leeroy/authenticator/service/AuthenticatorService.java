@@ -29,7 +29,7 @@ public class AuthenticatorService {
     AccountService accountService;
 
     @Inject
-    private PasswordTokenRepository passwordTokenRepository;
+    PasswordTokenRepository passwordTokenRepository;
 
     private final static String AUTHENTICATE_ACCOUNT = "Authenticate Account";
     private final static String CREATE_ACCOUNT = "Create Account";
